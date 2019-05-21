@@ -13,10 +13,10 @@ class ADC(object):
         sps_in_fiber = signal.sps_in_fiber
         sps = signal.sps
 
-        N = 1/(sps / sps_in_fiber)
-        N = int(N)
-        tempx = resample(signal[0],signal.sps_in_fiber,signal.sps,filter='kaiser_best')
-        tempy = resample(signal[1],signal.sps_in_fiber,signal.sps,filter='kaiser_best')
+        # N = 1/(sps / sps_in_fiber)
+        # N = int(N)
+        tempx = resample(signal[0],signal.sps_in_fiber,signal.sps,filter='kaiser_fast')
+        tempy = resample(signal[1],signal.sps_in_fiber,signal.sps,filter='kaiser_fast')
         # tempx = resample_poly(signal[0], 1, N)
         # tempy = resample_poly(signal[1], 1, N)
 
@@ -36,7 +36,7 @@ class DAC(object):
         from resampy import resample
         # tempx = resample(signal.data_sample[0, :], N)
         # tempy = resample(signal.data_sample[1, :], N)
-        tempx = resample(signal.data_sample, signal.sps, signal.sps_in_fiber, axis=1,filter='kaiser_best')
+        tempx = resample(signal.data_sample, signal.sps, signal.sps_in_fiber, axis=1,filter='kaiser_fast')
         signal.data_sample_in_fiber = tempx
         # signal.sps_in_fiber = sps_in_fiber
 
