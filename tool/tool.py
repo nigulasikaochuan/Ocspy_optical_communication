@@ -70,9 +70,9 @@ def scatterplot(signal, down_sample=True, backend='mplt', visdom_env="scatterplo
     if down_sample:
         if hasattr(signal, 'sps_in_fiber'):
             sps = signal.sps_in_fiber
-
         else:
             assert sps is not None
+
         symbol = downsample(signal, sps)
         symbol = np.atleast_2d(symbol)
         symbol = symbol[:, head:-head]
