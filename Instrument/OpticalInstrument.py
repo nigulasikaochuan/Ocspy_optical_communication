@@ -74,7 +74,7 @@ class Multiplex(object):
         # sample_length = signals[0][:].shape[1]
 
         # samples = np.zeros((pol_number, channel_number, sample_length), dtype=np.complex128)
-        wdm_data_sample = 0
+        wdm_data_sample = 0+0j
 
         for ch_index in tqdm.tqdm(range(channel_number),ascii=True):
             wdm_data_sample = wdm_data_sample + mux_signal2(signals[ch_index][:],t_array,relative_frequence[ch_index])
