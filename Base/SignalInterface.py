@@ -389,6 +389,93 @@ class WdmSignal(object):
 
         return power
 
+class WdmSignalFromArray(object):
+
+    def __init__(self,field,frequencys,fs_in_fiber):
+        '''
+
+        :param field:
+        :param center_freq: Hz
+        :param frequencys: Hz each channel's frequencys
+        :param fs_in_fiber: Hz
+        '''
+        self.__filed = field
+        self.fs_in_fiber = fs_in_fiber
+        self.frquencys = frequencys
+        self.center_frequence = np.mean([np.max(frequencys),np.min(frequencys)])
+        self.center_wave_length = freq2lamb(self.center_frequence) #m
+
+    def __setitem__(self, slice, value):
+
+        assert self.__filed is not None
+        self.__filed[slice] = value
+
+    def __getitem__(self, slice):
+        assert self.__filed is not None
+        return self.__filed[slice]
+
+    @property
+    def pol_number(self):
+        return self.__filed.shape[0]
+
+    @property
+    def shape(self):
+        return self.__filed.shape
+
+    @property
+    def sample_number_in_fiber(self):
+        return self.__filed.shape[1]
+
+    @property
+    def lam(self):
+        lambdas = []
+        for freq in self.frquencys:
+            lambdas.append(freq2lamb(freq))
+        return lambdas
+
+    @property
+    def data_sample_in_fiber(self):
+        return self.__filed
+
+    @data_sample_in_fiber.setter
+    def data_sample_in_fiber(self, value):
+        self.__filed = value
+
+    @property
+    def absolute_frequences(self):
+        '''
+
+        :return:
+        '''
+        return self.frquencys
+
+    @property
+    def relative_frequences(self):
+        '''
+
+        :return: frequences centered in zero frequence , an ndarray
+        '''
+        return self.absolute_frequences - self.center_frequence
+
+    def __str__(self):
+
+        string = f"center_frequence is {self.center_frequence * 1e-12} [THZ]\t\n" \
+            f"power is {self.measure_power_in_fiber()} [dbm] \t\n" \
+            f"power is {self.measure_power_in_fiber(unit='w')} [w]\t\n"
+
+        return string
+
+    def measure_power_in_fiber(self, unit='dbm'):
+
+        power = 0
+        for i in range(self.pol_number):
+            power += np.mean(np.abs(self[i, :]) ** 2)
+
+        if unit == 'dbm':
+            power = power * 1000
+            power = 10 * np.log10(power)
+
+        return power
 
 class QamSignal(Signal):
 
