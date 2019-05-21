@@ -9,15 +9,16 @@ class ADC(object):
         # print("ad will be implemented")
         # print("after ad, the sample in fiber will be resampled to signal.sps")
         # print("and the signal.sps_in_fiber will be set to signal.sps")
-
+        from resampy import resample
         sps_in_fiber = signal.sps_in_fiber
         sps = signal.sps
 
         N = 1/(sps / sps_in_fiber)
         N = int(N)
-
-        tempx = resample_poly(signal[0], 1, N)
-        tempy = resample_poly(signal[1], 1, N)
+        tempx = resample(signal[0],signal.sps_in_fiber,signal.sps,filter='kaiser_best')
+        tempy = resample(signal[1],signal.sps_in_fiber,signal.sps,filter='kaiser_best')
+        # tempx = resample_poly(signal[0], 1, N)
+        # tempy = resample_poly(signal[1], 1, N)
 
         new_sample = np.array([tempx, tempy])
         signal.data_sample_in_fiber = new_sample
@@ -31,10 +32,11 @@ class DAC(object):
         sps_in_fiber = np.ceil(signal.sps_in_fiber)
         N = np.ceil(sps_in_fiber / signal.sps)
         N = int(N)
-        from scipy.signal import resample_poly
+        # from scipy.signal import resample_poly
+        from resampy import resample
         # tempx = resample(signal.data_sample[0, :], N)
         # tempy = resample(signal.data_sample[1, :], N)
-        tempx = resample_poly(signal.data_sample, up=N, down=1, axis=1)
+        tempx = resample(signal.data_sample, signal.sps, signal.sps_in_fiber, axis=1,filter='kaiser_best')
         signal.data_sample_in_fiber = tempx
         # signal.sps_in_fiber = sps_in_fiber
 

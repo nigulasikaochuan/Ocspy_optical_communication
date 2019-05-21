@@ -5,7 +5,7 @@ import numpy as np
 from numpy.fft import fftfreq
 from scipy.constants import h, c
 from scipy.fftpack import fft, ifft
-
+import tqdm
 from ..Base.SignalInterface import QamSignal, Signal, WdmSignal
 from ..Filter.designFilter import LowPassFilter
 from typing import List
