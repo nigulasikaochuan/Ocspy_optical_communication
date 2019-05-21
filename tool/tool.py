@@ -35,17 +35,17 @@ def downsample(signal, sps):
     :param sps:
     :return: signal
     '''
+
     if not isinstance(signal, np.ndarray):
         sample = signal.data_sample_in_fiber
-        after_process = np.zeros_like(signal.symbol)
-
     else:
         sample = np.atleast_2d(signal)
-        length = divmod(sample.shape[1], sps)
 
-        if length[1] != 0:
-            raise ("after downsample the sample number should be integer")
-        after_process = np.zeros((sample.shape[0], length[0]), dtype=sample.dtype)
+    length = divmod(sample.shape[1], sps)
+
+    if length[1] != 0:
+        raise ("after downsample the sample number should be integer")
+    after_process = np.zeros((sample.shape[0], length[0]), dtype=sample.dtype)
 
     for i in range(sample.shape[0]):
         after_process[i, :] = sample[i, ::sps]
@@ -86,9 +86,13 @@ def scatterplot(signal, down_sample=True, backend='mplt', visdom_env="scatterplo
     pol_number = symbol.shape[0]
     if backend == 'mplt':
         import matplotlib.pyplot as plt
-        plt.figure(figsize=(20, 6))
+        if pol_number ==2:
+            plt.figure(figsize=(12, 6))
+        if pol_number ==1:
+            plt.figure(figsize=(6, 6))
+
         for i in range(pol_number):
-            plt.subplot(1, pol_number, i + 1)
+            plt.subplot(1, pol_number, i + 1,aspect='equal')
             ibranch = symbol[i, :].real
             qbranch = symbol[i, :].imag
             plt.scatter(ibranch, qbranch, marker='o', color='b')
