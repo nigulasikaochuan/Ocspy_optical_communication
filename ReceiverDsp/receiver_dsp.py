@@ -1,3 +1,4 @@
+import copy
 import os
 
 import numba
@@ -114,6 +115,7 @@ def cd_compensation(signal: Signal, spans, inplace=False):
     else:
         if hasattr(np,'asnumpy'):
             sample = np.asnumpy(sample)
+        signal = copy.deepcopy(signal)
         signal[:] = sample
         return signal
 
