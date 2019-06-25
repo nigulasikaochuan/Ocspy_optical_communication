@@ -6,9 +6,9 @@ try:
     from cupy.fft import fft as cfft
     from cupy.fft import ifft as icfft
 
-    from cupy.scipy.fftpack import fft as improved_fft
-    from cupy.scipy.fftpack import ifft as improved_ifft
-    from cupy.scipy.fftpack import get_fft_plan
+    from cupyx.scipy.fftpack import fft as improved_fft
+    from cupyx.scipy.fftpack import ifft as improved_ifft
+    from cupyx.scipy.fftpack import get_fft_plan
 except Exception as e:
     print('cupy can not be used')
 
