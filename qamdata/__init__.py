@@ -8,10 +8,22 @@
 # #
 
 
+# from ..ReceiverDsp.dsp_tools import cal_symbols_qam
+# from ..ReceiverDsp.dsp_tools import cal_scaling_factor_qam
+#
+
+# # import numpy as np
+# # QPSK = cal_symbols_qam(4)/np.sqrt(cal_scaling_factor_qam((4)))
+# #
+# #
+
+
 
 import os
 
-names = os.listdir('./')
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))+'/'
+
+names = os.listdir(BASE_DIR)
 
 # znames = os.listdir('./')
 for name in names:
@@ -27,7 +39,9 @@ if not flag:
     for name in names:
         if 'qam' in name and name.endswith('py'):
 
-            os.rename(name,f'{name.split(".")[0]}.mat')
+            os.rename(BASE_DIR+name,BASE_DIR+f'{name.split(".")[0]}.mat')
+
+
 
 
 
