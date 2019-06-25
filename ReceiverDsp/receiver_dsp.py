@@ -115,7 +115,7 @@ def cd_compensation(signal: Signal, spans, inplace=False):
         if hasattr(np,'asnumpy'):
             sample = np.asnumpy(sample)
         signal[:] = sample
-        return sample
+        return signal
 
 
 #     return const[np.argmin(distance)]
