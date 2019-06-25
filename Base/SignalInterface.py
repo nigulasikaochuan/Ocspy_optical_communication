@@ -6,7 +6,7 @@ from scipy.constants import c
 from typing import List
 from ..tool.tool import freq2lamb
 import os
-import qamdata
+import Ocspy.qamdata
 base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
