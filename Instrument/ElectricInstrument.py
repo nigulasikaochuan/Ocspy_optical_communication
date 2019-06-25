@@ -1,25 +1,61 @@
 from scipy.signal import convolve, fftconvolve, resample_poly
 from scipy.signal import resample
 import numpy as np
+from ..Base import Signal
+import numba
+
+
+class Quantization(object):
+
+    def __init__(self, clipping_ratio, resolution_bits):
+        self.clipping_ratio = clipping_ratio
+        self.resolution_bits = resolution_bits
+
+    def __call__(self,signal):
+        for i in range(signal.pol_number):
+            ibranch = quantization(signal[i, :].real, self.clipping_ratio, self.resolution_bits)
+            qbranch = quantization(signal[i, :].imag, self.clipping_ratio, self.resolution_bits)
+            signal[i, :] = ibranch + 1j * qbranch
+        return signal
+
+
+def quantization(samples, clipping_ratio, resolution_bits):
+    power = np.mean(samples.real ** 2 + samples.imag ** 2)
+    A = 10 ** (clipping_ratio / 20) * np.sqrt(power)
+
+    codebook = np.linspace(-A, A, 2 ** resolution_bits, endpoint=True)
+    partition = codebook - (codebook[1] - codebook[0]) / 2
+    partition = partition[1:]
+
+    _, samples_quan = quantize(samples, partition, codebook)
+    #     print(np.array(_))
+    return samples_quan
+
+
+@numba.jit(cache=True)
+def quantize(signal, partitions, codebook):
+    signal = np.atleast_2d(signal)
+    assert signal.shape[0] == 1
+    quanta = np.zeros_like(signal, dtype=np.float64)
+    indices = np.zeros((1, len(signal[0, :])), dtype=np.int)
+    cnt = 0
+    for datum in signal[0, :]:
+        index = 0
+        while index < len(partitions) and datum > partitions[index]:
+            index += 1
+        indices[0, cnt] = index
+        quanta[0, cnt] = codebook[index]
+        cnt = cnt + 1
+    return indices, quanta
 
 
 class ADC(object):
 
     def __call__(self, signal):
-        # print("ad will be implemented")
-        # print("after ad, the sample in fiber will be resampled to signal.sps")
-        # print("and the signal.sps_in_fiber will be set to signal.sps")
+
         from resampy import resample
-        sps_in_fiber = signal.sps_in_fiber
-        sps = signal.sps
-
-        # N = 1/(sps / sps_in_fiber)
-        # N = int(N)
-        tempx = resample(signal[0],signal.sps_in_fiber,signal.sps,filter='kaiser_fast')
-        tempy = resample(signal[1],signal.sps_in_fiber,signal.sps,filter='kaiser_fast')
-        # tempx = resample_poly(signal[0], 1, N)
-        # tempy = resample_poly(signal[1], 1, N)
-
+        tempx = resample(signal[0], signal.sps_in_fiber, signal.sps, filter='kaiser_fast')
+        tempy = resample(signal[1], signal.sps_in_fiber, signal.sps, filter='kaiser_fast')
         new_sample = np.array([tempx, tempy])
         signal.data_sample_in_fiber = new_sample
         signal.sps_in_fiber = signal.sps
@@ -29,16 +65,11 @@ class ADC(object):
 class DAC(object):
 
     def __call__(self, signal):
-        sps_in_fiber = np.ceil(signal.sps_in_fiber)
-        N = np.ceil(sps_in_fiber / signal.sps)
-        N = int(N)
-        # from scipy.signal import resample_poly
+
         from resampy import resample
-        # tempx = resample(signal.data_sample[0, :], N)
-        # tempy = resample(signal.data_sample[1, :], N)
-        tempx = resample(signal.data_sample, signal.sps, signal.sps_in_fiber, axis=1,filter='kaiser_fast')
+        tempx = resample(signal.data_sample, signal.sps, signal.sps_in_fiber, axis=1, filter='kaiser_fast')
         signal.data_sample_in_fiber = tempx
-        # signal.sps_in_fiber = sps_in_fiber
+
 
 
 class PulseShaping(object):
@@ -108,11 +139,11 @@ class PulseShaping(object):
             elif alpha != 0 and t == Ts / (4 * alpha):
                 h_rrc[x] = (alpha / np.sqrt(2)) * (((1 + 2 / np.pi) *
                                                     (np.sin(np.pi / (4 * alpha)))) + (
-                    (1 - 2 / np.pi) * (np.cos(np.pi / (4 * alpha)))))
+                                                           (1 - 2 / np.pi) * (np.cos(np.pi / (4 * alpha)))))
             elif alpha != 0 and t == -Ts / (4 * alpha):
                 h_rrc[x] = (alpha / np.sqrt(2)) * (((1 + 2 / np.pi) *
                                                     (np.sin(np.pi / (4 * alpha)))) + (
-                    (1 - 2 / np.pi) * (np.cos(np.pi / (4 * alpha)))))
+                                                           (1 - 2 / np.pi) * (np.cos(np.pi / (4 * alpha)))))
             else:
                 h_rrc[x] = (np.sin(np.pi * t * (1 - alpha) / Ts) +
                             4 * alpha * (t / Ts) * np.cos(np.pi * t * (1 + alpha) / Ts)) / \
@@ -144,7 +175,7 @@ class PulseShaping(object):
         temp = []
         for i in range(signal_interface.data_sample.shape[0]):
             temp.append(
-                fftconvolve( signal_interface.data_sample[i, :],self.filter_tap[0, :],mode='full'))
+                fftconvolve(signal_interface.data_sample[i, :], self.filter_tap[0, :], mode='full'))
 
         # tempy = convolve(self.filter_tap[0, :], signal_interface.data_sample[1, :])
         # temp_signal = np.array([tempx, tempy])
@@ -153,7 +184,7 @@ class PulseShaping(object):
         temp_signal = np.roll(temp_signal, -int(self.delay), axis=1)
 
         signal_interface.data_sample = temp_signal[:,
-                                                   :signal_interface.sps * signal_interface.symbol_length]
+                                       :signal_interface.sps * signal_interface.symbol_length]
 
     def __call__(self, signal):
         self.rrcfilter(signal)
@@ -180,7 +211,7 @@ class AWG(object):
             kind='rrc', alpha=alpha, sps=sps, span=span)
         self.dac = DAC()
 
-    def __call__(self, signal_interface):
+    def __call__(self, signal_interface) ->Signal:
         self.pulse_shaping_filter.rrcfilter(signal_interface)
 
         self.dac(signal_interface)
@@ -194,17 +225,3 @@ class AWG(object):
 
     def __repr__(self):
         return self.__str__()
-
-
-if __name__ == '__main__':
-    # h = PulseShaping.rcosdesign(32 * 4, 0.2, 1, 4)
-    import progressbar
-    import time
-
-    bar = progressbar.ProgressBar(max_value=16000)
-    for i in range(16000):
-        bar.update(i + 1)
-        time.sleep(0.01)
-
-    bar.update(16000)
-    bar.finish()
