@@ -6,14 +6,13 @@ from numpy.fft import fftfreq
 from scipy.constants import h, c
 from scipy.fftpack import fft, ifft
 import tqdm
+from ..Base.SignalInterface import WdmSignalFromArray
 from ..Base.SignalInterface import QamSignal, Signal, WdmSignal
 from ..Filter.designFilter import LowPassFilter
 from typing import List
 from scipy.special import erf
 import warnings
 import numba
-
-
 
 
 class Multiplex(object):
@@ -74,10 +73,10 @@ class Multiplex(object):
         # sample_length = signals[0][:].shape[1]
 
         # samples = np.zeros((pol_number, channel_number, sample_length), dtype=np.complex128)
-        wdm_data_sample = 0+0j
+        wdm_data_sample = 0 + 0j
 
-        for ch_index in tqdm.tqdm(range(channel_number),ascii=True):
-            wdm_data_sample = wdm_data_sample + mux_signal2(signals[ch_index][:],t_array,relative_frequence[ch_index])
+        for ch_index in tqdm.tqdm(range(channel_number), ascii=True):
+            wdm_data_sample = wdm_data_sample + mux_signal2(signals[ch_index][:], t_array, relative_frequence[ch_index])
 
         # wdm_data_sample = mux_signal(samples, t_array, relative_frequence.reshape(-1, 1))
 
@@ -85,11 +84,13 @@ class Multiplex(object):
 
         return wdm_signal
 
-@numba.njit("complex128[:,:](complex128[:,:],float64[:],float64)",cache=True)
-def mux_signal2(samples,t_array,relative_frequence):
+
+@numba.njit("complex128[:,:](complex128[:,:],float64[:],float64)", cache=True)
+def mux_signal2(samples, t_array, relative_frequence):
     exp_factor = np.exp(1j * 2 * np.pi * relative_frequence * t_array)
     samples = samples * exp_factor
     return samples
+
 
 @numba.njit("complex128[:,:](complex128[:,:,:], float64[:],float64[:,:])", cache=True)
 def mux_signal(samples, t_array, relative_frequence):
@@ -106,6 +107,7 @@ def mux_signal(samples, t_array, relative_frequence):
     wdm_signal_datasample = np.atleast_2d(wdm_signal_datasample)
     return wdm_signal_datasample
 
+
 class Demultiplex(object):
 
     @staticmethod
@@ -120,6 +122,13 @@ class Demultiplex(object):
         :param signal_index: which signal want to get,return signal objectl,if None.all channel will be returned
         :return: a QamSignal
         '''
+        if isinstance(wdm_signal, WdmSignal):
+            signal_under_study = wdm_signal.signals[signal_index]
+        elif isinstance(wdm_signal, WdmSignalFromArray):
+            signal_under_study = wdm_signal.signal_under_study
+        else:
+            raise TypeError('only WdmSignal Object or WdmSignalFromArray Object is accepted')
+        
         frequences = wdm_signal.relative_frequences
         tarray = np.arange(0, wdm_signal[:].shape[1]) * (1 / wdm_signal.fs_in_fiber)
 
@@ -130,23 +139,26 @@ class Demultiplex(object):
             temp[i, :] = wdm_signal[i, :] * np.exp(-1j * 2 * np.pi * frequences[signal_index] * tarray)
 
         # center_frequence = wdm_signal.relative_frequence[signal_index]
-        pos_freq = wdm_signal.signals[signal_index].symbol_rate / 2 * (1 + roll_off)
+        pos_freq = signal_under_study.symbol_rate / 2 * (1 + roll_off)
         neg_freq = -pos_freq
         # LowPassFilter.inplace_ideal_lowpass(temp,pos_freq,neg_freq,fs_in_fiber=wdm_signal.fs_in_fiber)
-
-        signal = cls(symbol_rate=wdm_signal.signals[signal_index].symbol_rate,
-                           sps=wdm_signal.signals[signal_index].sps,
-                           sps_in_fiber=wdm_signal.signals[signal_index].sps_in_fiber,
-                           is_dp=wdm_signal.signals[signal_index].is_dp, is_from_array=True, is_from_demux=True,
-                           mf=wdm_signal.signals[signal_index].mf,
-                           symbol_length=wdm_signal.signals[signal_index].symbol_length)
-
+       
+        
+        signal = cls(symbol_rate=signal_under_study.symbol_rate,
+                     sps=signal_under_study.sps,
+                     sps_in_fiber=signal_under_study.sps_in_fiber,
+                     is_dp=signal_under_study.is_dp,
+                     is_from_array=True,
+                     is_from_demux=True,
+                     mf=signal_under_study.mf,
+                     symbol_length=signal_under_study.symbol_length)
+            
         signal.data_sample_in_fiber = temp
         #
-        signal._symbol = wdm_signal.signals[signal_index]._symbol
-        signal.message = wdm_signal.signals[signal_index].message
+        signal._symbol = signal_under_study._symbol
+        signal.message = signal_under_study.message
         # the symbol and msg should not be changed, it is the tx information
-        signal.center_frequence = wdm_signal.center_frequence
+        signal.center_frequence = signal_under_study.center_frequence
         LowPassFilter.inplace_ideal_lowpass(signal, pos_freq, neg_freq)
         # signal.symbol = wdm_signal.signals[signal_index].symbol
         return signal
@@ -170,7 +182,7 @@ class Edfa:
         self.mode = mode
         self.expected_power = expected_power
 
-    def one_ase(self, signal,gain_lin=None):
+    def one_ase(self, signal, gain_lin=None):
         '''
 
         :param signal:
@@ -195,7 +207,7 @@ class Edfa:
         if self.is_ase:
             noise = self.one_ase(signal) * signal.fs_in_fiber
             noise_sample = np.random.randn(*(signal[:].shape)) + 1j * np.random.randn(*(signal[:].shape))
-            each_pol_power = noise 
+            each_pol_power = noise
 
             noise_sample = np.sqrt(each_pol_power / 2) * noise_sample
 
@@ -207,16 +219,16 @@ class Edfa:
             return
 
         if self.mode == 'ConstantPower':
-#             raise NotImplementedError("Not implemented")
+            #             raise NotImplementedError("Not implemented")
             signal_power = np.mean(np.abs(signal.data_sample[0, :]) ** 2) + np.mean(
                 np.abs(signal.data_sample[1, :]) ** 2)
             desired_power_linear = (10 ** (self.expected_power / 10)) / 1000
             linear_gain = desired_power_linear / signal_power
             #
             #
-            noise = self.one_ase(signal,linear_gain)*signal.fs_in_fiber
-            noise_sample = np.random.randn(*(signal[:].shape))+1j*np.random.randn(*(signal[:].shape))
-            noise_sample = np.sqrt(noise/2) * noise_sample
+            noise = self.one_ase(signal, linear_gain) * signal.fs_in_fiber
+            noise_sample = np.random.randn(*(signal[:].shape)) + 1j * np.random.randn(*(signal[:].shape))
+            noise_sample = np.sqrt(noise / 2) * noise_sample
             signal[:] = np.sqrt(linear_gain) * signal[:] + noise_sample
 
         return signal
@@ -277,7 +289,7 @@ class WSS(object):
     def __get_transfer_function(self, freq_vector):
         delta = self.otf / 2 / np.sqrt(2 * np.log(2))
 
-        H =  0.5 * delta * np.sqrt(2 * np.pi) * (
+        H = 0.5 * delta * np.sqrt(2 * np.pi) * (
                 erf((self.bandwidth / 2 - (freq_vector - self.frequency_offset)) / np.sqrt(2) / delta) - erf(
             (-self.bandwidth / 2 - (freq_vector - self.frequency_offset)) / np.sqrt(2) / delta))
 
@@ -290,15 +302,15 @@ class WSS(object):
         if self.H is None:
             self.__get_transfer_function(freq)
             self.freq = freq
-        index = self.H >0.001
-        plt.figure(figsize=(20,6))
+        index = self.H > 0.001
+        plt.figure(figsize=(20, 6))
         plt.subplot(121)
-        plt.scatter(self.freq[index], np.abs(self.H[index]),color='b',marker='o')
+        plt.scatter(self.freq[index], np.abs(self.H[index]), color='b', marker='o')
         plt.xlabel('GHz')
         plt.ylabel('Amplitude')
         plt.title("without log")
         plt.subplot(122)
-        plt.scatter(self.freq[index], 10 * np.log10(np.abs(self.H[index])),color='b',marker='o')
+        plt.scatter(self.freq[index], 10 * np.log10(np.abs(self.H[index])), color='b', marker='o')
         plt.xlabel('GHz')
         plt.ylabel('Amplitude')
         plt.title("with log")
