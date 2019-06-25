@@ -10,9 +10,20 @@
 
 
 import os
-names = os.listdir('./*.mat')
-if not names:
-    names = os.listdir('./')
+
+names = os.listdir('./')
+
+# znames = os.listdir('./')
+for name in names:
+    if name.endswith('.mat'):
+        flag=True
+        break
+
+else:
+    flag = False
+
+
+if not flag:
     for name in names:
         if 'qam' in name and name.endswith('py'):
 
