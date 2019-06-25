@@ -3,7 +3,7 @@ import typing
 
 import Ocspy.Base as base
 import Ocspy.Instrument as instrument
-# import h5py
+import h5py
 import numpy as np
 from .Base.SignalInterface import WdmSignalFromArray
 from scipy.io import savemat
@@ -21,7 +21,7 @@ def calc_sps_in_fiber(nch, spacing, baudrate):
 
 def generate_qam_signal(power: typing.Union[typing.List, float], baudrate: typing.Union[float, typing.List],
                         mf='16-qam',
-                        symbol_length=2 ** 16, roll_off=0.02, spacing=50e9, unit='Ghz') -> typing.List[base.QamSignal]:
+                        symbol_length=2 ** 16, roll_off=0.02, spacing=50e9, unit='Ghz') -> typing.List[base.Signal]:
     signals = []
 
     if not isinstance(power, list):
