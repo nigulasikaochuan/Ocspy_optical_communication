@@ -4,6 +4,36 @@ from .dsp_tools import cal_scaling_factor_qam
 from .dsp_tools import normal_sample
 import numba
 
+@numba.njit('int32[:](int32,int32)',cache=True)
+def msg2bin(msg, number):
+    x = np.ones(number, dtype=np.int32)
+
+    for i in range(number):
+        if i == 0:
+            x[i] = divmod(msg, 2)[1]
+            next_number = divmod(msg, 2)[0]
+        else:
+            x[i] = divmod(next_number, 2)[1]
+            next_number = divmod(next_number, 2)[0]
+    return x[::-1]
+
+
+@numba.njit('float64(int32,int32[:],int32[:])',cache=True)
+def biterror_exp( order,receive_msg, tx_msg):
+    assert receive_msg.ndim == 1
+    assert tx_msg.ndim == 1
+    selected_msg_recv = receive_msg[receive_msg != tx_msg]
+    selected_msg_tx = tx_msg[receive_msg != tx_msg]
+    bitnumber = np.log2(order)
+    assert selected_msg_recv.shape == selected_msg_tx.shape
+    biterror_number = 0
+    for cnt in range(len(selected_msg_tx)):
+        recv_bin = msg2bin(selected_msg_recv[cnt], bitnumber)
+        tx_bin = msg2bin(selected_msg_tx[cnt], bitnumber)
+        biterror_number += np.sum(tx_bin != recv_bin)
+
+    return biterror_number / bitnumber / len(receive_msg)
+
 
 def biterror(order, receive_msg, tx_msg):
     assert receive_msg.ndim == 1
@@ -47,10 +77,10 @@ def osnr2snr(is_pdm, signal_bandwidth):
 
 
 def estimate_snr_using_tx(recive_symbol, tx_symbol, to_normalize=True, head=1024):
-    recive_symbol = np.atleast_2d(recive_symbol)
+    recive_symbol = np.atleast_2d(np.copy(recive_symbol))
     pol_number = recive_symbol.shape[0]
 
-    tx_symbol = np.atleast_2d(tx_symbol)
+    tx_symbol = np.atleast_2d(np.copy(tx_symbol))
     assert recive_symbol.shape == tx_symbol.shape
 
     recive_symbol = recive_symbol[:, head:-head]
