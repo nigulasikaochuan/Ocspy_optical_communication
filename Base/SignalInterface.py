@@ -1,3 +1,5 @@
+import copy
+
 import numpy as np
 from scipy.io import loadmat
 from scipy.constants import c
@@ -35,10 +37,13 @@ class Signal(object):
             2. mf 调制格式
             3. symbol length 符号长度
             4. signal_power  信号功率  【dbm】
-            5. sps： 发端dsp的采样率
+            5. sps：         发端dsp的采样率
             6. sps_in_fiber: 光纤中采样率
-            7. lam： 信号波长，单位为国际单位 m,property修饰符修饰
             8. center_frequence: Hz
+
+        property:
+            symbol:  the symbol to be sent, can only be accessed but can not be set
+
 
         所有单位全部使用国际标准单位
 
@@ -59,8 +64,8 @@ class Signal(object):
     def symbol(self):
         return self._symbol
 
-    def inlace_set_signal_power(self,power,unit='dbm'):
-        if unit =='dbm':
+    def inplace_set_signal_power(self, power, unit='dbm'):
+        if unit == 'dbm':
             pass
         else:
             power = power/10
@@ -106,9 +111,7 @@ class Signal(object):
         if function not return a new ndarrya
         change it outside will change the data_sample_in_fiber property of the object
         '''
-        data_sample_in_fiber = np.zeros_like(self.data_sample_in_fiber)
-        for i in range(self.pol_number):
-            data_sample_in_fiber[i, :] = self.data_sample_in_fiber[i, :]
+        data_sample_in_fiber = copy.deepcopy(self.data_sample_in_fiber)
         return data_sample_in_fiber
 
     def __getitem__(self, index):
@@ -125,9 +128,9 @@ class Signal(object):
     def __setitem__(self, index, value):
         '''
 
-        :param index: SLICE Object
-        :param value: the value that to be set,must be ndarray
-        :return:
+        :param   index: slice Object
+        :param   value: the value that to be set,must be ndarray
+        :return: None
         '''
         if self.data_sample_in_fiber is None:
             self.data_sample_in_fiber = np.atleast_2d(value)
@@ -243,7 +246,7 @@ class SignalFromNumpyArray(Signal):
         '''
 
         :param array_sample: nd arrary
-        :param symbol_rate: GHZ
+        :param symbol_rate: [Hz]
         :param mf: modulation format
         :param symbol_length: the length of transimitted symbol
         :param sps_in_fiber: the samples per symbol in fiber
@@ -288,8 +291,9 @@ class WdmSignal(object):
         '''
 
         :param signals: list of signal
-        :param grid_size: [GHz],if conventional grid_size,this will be a number or a list of same value
+        :param grid_size: [Hz],if conventional grid_size,this will be a number or a list of same value
         if the elestical wdm, the grid size of each channel is different.
+        :param center_frequence: Hz
 
         The WdmSignal class should not be used outside usually, in mux function, it will be created automatically.
 
@@ -389,21 +393,25 @@ class WdmSignal(object):
 
         return power
 
+
 class WdmSignalFromArray(object):
 
-    def __init__(self,field,frequencys,fs_in_fiber):
+    def __init__(self, field, frequencys, fs_in_fiber, signal_under_study, signal_index):
         '''
 
-        :param field:
-        :param center_freq: Hz
-        :param frequencys: Hz each channel's frequencys
+        :param field:   WDM multiplexed fiedl
+        :param center_freq: Hz will be caculated from frequencys
+        :param frequencys: Hz each channel's frequencys, the passband frequence
         :param fs_in_fiber: Hz
         '''
         self.__filed = field
         self.fs_in_fiber = fs_in_fiber
-        self.frquencys = frequencys
-        self.center_frequence = np.mean([np.max(frequencys),np.min(frequencys)])
-        self.center_wave_length = freq2lamb(self.center_frequence) #m
+        self.frequences = frequencys
+        self.center_frequence = np.mean(
+            [np.max(frequencys), np.min(frequencys)])
+        self.center_wave_length = freq2lamb(self.center_frequence)  # m
+        self.signal_under_study = signal_under_study
+        self.signal_index = signal_index
 
     def __setitem__(self, slice, value):
 
@@ -411,6 +419,7 @@ class WdmSignalFromArray(object):
         self.__filed[slice] = value
 
     def __getitem__(self, slice):
+
         assert self.__filed is not None
         return self.__filed[slice]
 
@@ -429,7 +438,7 @@ class WdmSignalFromArray(object):
     @property
     def lam(self):
         lambdas = []
-        for freq in self.frquencys:
+        for freq in self.frequences:
             lambdas.append(freq2lamb(freq))
         return lambdas
 
@@ -447,7 +456,7 @@ class WdmSignalFromArray(object):
 
         :return:
         '''
-        return self.frquencys
+        return self.frequences
 
     @property
     def relative_frequences(self):
@@ -472,10 +481,11 @@ class WdmSignalFromArray(object):
             power += np.mean(np.abs(self[i, :]) ** 2)
 
         if unit == 'dbm':
-            power = power * 1000
+            power = power * 1000  # convert to mw
             power = 10 * np.log10(power)
 
         return power
+
 
 class QamSignal(Signal):
 
@@ -501,7 +511,7 @@ class QamSignal(Signal):
         else:
             order = self.mf.split('-')[0]
             order = int(order)
-        if not is_from_array:
+        if not is_from_array and not self.is_from_demux:
             if is_dp:
 
                 self.message = np.random.randint(
@@ -527,23 +537,3 @@ class QamSignal(Signal):
                 symbol[i, self.message[i, :] == msg] = qam_data[0, msg]
 
         self._symbol = symbol
-
-
-def _main():
-    symbol_rate = 35e9
-    mf = '16-qam'
-    signal_power = 0
-    symbol_length = 5
-    sps = 2
-    sps_infiber = 4
-
-    parameter = dict(symbol_rate=symbol_rate, mf=mf, symbol_length=symbol_length, sps=sps,
-                     sps_in_fiber=sps_infiber, is_dp=False)
-
-    signal = QamSignal(**parameter)
-    signal[:] = np.array([1, 2, 3, 4, 5])
-    signal[0, :] = np.array([4, 5, 6, 7, 8])
-    # signal._normalize_power()
-    print(signal[0, :])
-    print(signal.measure_power_in_fiber())
-    print("heiehi")
