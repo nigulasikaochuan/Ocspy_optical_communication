@@ -13,8 +13,10 @@ import numpy as np
 from scipy.constants import c
 import math
 # import progressbar
-
-
+try:
+    from .ssfm import  symmetric_ssfm
+except Exception as e:
+    pass
 # import arrayfire as af
 
 
@@ -149,10 +151,11 @@ class LinearFiber(object):
 
 class NonlinearFiber(LinearFiber):
 
-    def __init__(self, alpha, D, length, gamma, slope=0, step_length=5 / 1000, reference_wave_length=1550):
+    def __init__(self, alpha, D, length, gamma, slope=0, step_length=5 / 1000, reference_wave_length=1550,backend='cupy'):
         super().__init__(alpha, D, length, slope=slope, reference_wave_length=reference_wave_length)
         self.gamma = gamma
         self.step_length = step_length
+        self.backend = backend
 
     @property
     def step_length_eff(self):
@@ -246,8 +249,14 @@ class NonlinearFiber(LinearFiber):
         return time_x, time_y
 
     def inplace_prop(self, signal):
-        after_prop = self.cupy_prop(signal)
-        signal.data_sample_in_fiber = after_prop
+        if self.backend =='cupy':
+            after_prop = self.cupy_prop(signal)
+        else:
+            setting = dict(beta2 = self.beta2(signal.center_wave_length),
+                           gamma = self.gamma,step_length = self.step_length,fiber_length = self.length,
+                           alpha_lin = self.alpha_lin)
+            after_prop = symmetric_ssfm(signal,setting)
+        signal.data_sample_in_fiber = np.array(after_prop)
         return signal
 
     def __call__(self, signal):
