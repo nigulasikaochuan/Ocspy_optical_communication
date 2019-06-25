@@ -42,8 +42,10 @@ if not flag:
             os.rename(BASE_DIR+name,BASE_DIR+f'{name.split(".")[0]}.mat')
 
 
-
-
+if flag:
+    for name in names:
+        if 'qam' in name and '.py' in name:
+            os.remove(BASE_DIR+name)
 
 
 
