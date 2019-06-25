@@ -251,7 +251,7 @@ class NonlinearFiber(LinearFiber):
         freq_y = freq_y * cp.exp(D * length)
 
         time_x = improved_ifft(freq_x,overwrite_x=True,plan=plan)
-        time_y = improved_ifft(freq_y,overwrite_y=True,plan=plan)
+        time_y = improved_ifft(freq_y,overwrite_x=True,plan=plan)
         return time_x, time_y
 
 
