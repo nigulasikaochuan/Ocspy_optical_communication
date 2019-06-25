@@ -189,15 +189,15 @@ class NonlinearFiber(LinearFiber):
             # fftx = cfft(time_x)
             # ffty = cfft(time_y)
 
-            time_x, time_y = self.linear_prop_cupy(D, time_x, time_y, self.step_length / 2)
+            time_x, time_y = self.linear_prop_cupy(D, time_x, time_y, self.step_length / 2,plan)
             time_x, time_y = self.nonlinear_prop_cupy(N, time_x, time_y)
             time_x = time_x * math.exp(atten * self.step_length)
             time_y = time_y * math.exp(atten * self.step_length)
 
-            fftx = cfft(time_x)
-            ffty = cfft(time_y)
+            # fftx = cfft(time_x)
+            # ffty = cfft(time_y)
 
-            time_x, time_y = self.linear_prop_cupy(D, fftx, ffty, self.step_length / 2)
+            time_x, time_y = self.linear_prop_cupy(D, time_x, time_y, self.step_length / 2,plan)
 
         last_step = self.length - self.step_length * step_number
         last_step_eff = (1 - np.exp(-self.alpha_lin * last_step)) / self.alpha_lin
@@ -206,22 +206,23 @@ class NonlinearFiber(LinearFiber):
             time_y = cp.asnumpy(time_y)
             temp[0, :] = time_x
             temp[1, :] = time_y
+
             return temp
+        else:
+            # fftx = cfft(time_x)
+            # ffty = cfft(time_y)
 
-        fftx = cfft(time_x)
-        ffty = cfft(time_y)
+            time_x, time_y = self.linear_prop_cupy(D, time_x, time_y, last_step / 2,plan)
+            time_x, time_y = self.nonlinear_prop_cupy(N, time_x, time_y, last_step_eff)
+            time_x = time_x * math.exp(atten * last_step)
+            time_y = time_y * math.exp(atten * last_step)
 
-        time_x, time_y = self.linear_prop_cupy(D, fftx, ffty, last_step / 2,plan)
-        time_x, time_y = self.nonlinear_prop_cupy(N, time_x, time_y, last_step_eff)
-        time_x = time_x * math.exp(atten * last_step)
-        time_y = time_y * math.exp(atten * last_step)
+            # fftx = cfft(time_x)
+            # ffty = cfft(time_y)
+            time_x, time_y = self.linear_prop_cupy(D, time_x, time_y, last_step / 2,plan)
 
-        fftx = cfft(time_x)
-        ffty = cfft(time_y)
-        time_x, time_y = self.linear_prop_cupy(D, fftx, ffty, last_step / 2,plan)
-
-        temp[0, :] = cp.asnumpy(time_x)
-        temp[1, :] = cp.asnumpy(time_y)
+            temp[0, :] = cp.asnumpy(time_x)
+            temp[1, :] = cp.asnumpy(time_y)
         return temp
 
     def nonlinear_prop_cupy(self, N, time_x, time_y, step_length=None):
