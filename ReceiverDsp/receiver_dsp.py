@@ -104,7 +104,7 @@ def cd_compensation(signal: Signal, spans, inplace=False):
         dispersion = (-1j / 2) * beta2 * omeg_vector ** 2 * span.length
         dispersion = np.array(dispersion)
         for pol_index in range(sample.shape[0]):
-            sample[pol_index, :] = ifft(fft(sample[pol_index, :]) * np.exp(dispersion))
+            sample[pol_index, :] = np.fft.ifft(np.fft.fft(sample[pol_index, :]) * np.exp(dispersion))
 
     if inplace:
         if hasattr(np,'asnumpy'):

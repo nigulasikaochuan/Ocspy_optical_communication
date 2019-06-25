@@ -1,3 +1,5 @@
+import copy
+
 from ..Base.SignalInterface import Signal
 from scipy.fftpack import fftfreq
 from scipy.fftpack import fft
@@ -33,7 +35,7 @@ class LowPassFilter(object):
     def ideal_lowpass(signal: Signal, pos_cutoff_frequence, neg_cutoff_frequence, fs_in_fiber=None):
         '''
 
-        :param signal: the sampled sample will be returned, original sample of signal will not be changed
+        :param signal: the  sample will be returned, original sample of signal will not be changed
         :return:
         '''
         if fs_in_fiber is None:
@@ -41,15 +43,12 @@ class LowPassFilter(object):
             pol_number = signal.pol_number
             sample_number_in_fiber = signal.sample_number_in_fiber
         else:
+            signal = np.atleast_2d(signal)
             sample_number_in_fiber = signal.shape[1]
             pol_number = signal.shape[0]
 
-        samples = np.zeros_like(signal[:])
-        for i in range(pol_number):
-            samples[i, :] = signal[i, :]
+        samples = copy.deepcopy(signal[:])
 
-        # sample_x = signal[0, :]
-        # sample_y = signal[1, :]
         freq = fftfreq(sample_number_in_fiber, 1 / fs_in_fiber)
 
         # sample_x_fourier_transform = fft(sample_x)
