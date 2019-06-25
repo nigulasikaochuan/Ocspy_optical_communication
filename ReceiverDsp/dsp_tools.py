@@ -20,7 +20,7 @@
 
 
 import warnings
-
+from numba.types import float64
 import numpy as np
 import numba
 
@@ -126,6 +126,17 @@ def bin2gray(value):
     ..[1] https://en.wikipedia.org/wiki/Gray_code#Constructing_an_n-bit_Gray_code
     """
     return value ^ (value >> 1)
+
+
+
+@numba.guvectorize([(numba.types.complex128[:],numba.types.complex128[:],numba.types.complex128[:])], '(n),(m)->(n)',nopython=True)
+def exp_decision(symbol,const,res):
+    for index,sym in enumerate(symbol):
+        # distance = sym-const
+        distance = np.abs(sym-const)
+        res[index] = const[np.argmin(distance)]
+
+
 
 
 @numba.jit(cache=True)
