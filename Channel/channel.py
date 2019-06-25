@@ -5,6 +5,10 @@ try:
     import cupy as cp
     from cupy.fft import fft as cfft
     from cupy.fft import ifft as icfft
+
+    from cupy.scipy.fftpack import fft as improved_fft
+    from cupy.scipy.fftpack import ifft as improved_ifft
+    from cupy.scipy.fftpack import get_fft_plan
 except Exception as e:
     print('cupy can not be used')
 
@@ -179,14 +183,13 @@ class NonlinearFiber(LinearFiber):
         time_x = cp.asarray(signal[0, :])
         time_y = cp.asarray(signal[1, :])
 
-#         print('*' * 20 + "begin simulation" + '*' * 20)
-#         bar = progressbar.ProgressBar(max_value=step_number)
-        for i in range(step_number):
-#             bar.update(i + 1)
-            fftx = cfft(time_x)
-            ffty = cfft(time_y)
+        plan = get_fft_plan(time_x)
 
-            time_x, time_y = self.linear_prop_cupy(D, fftx, ffty, self.step_length / 2)
+        for i in range(step_number):
+            # fftx = cfft(time_x)
+            # ffty = cfft(time_y)
+
+            time_x, time_y = self.linear_prop_cupy(D, time_x, time_y, self.step_length / 2)
             time_x, time_y = self.nonlinear_prop_cupy(N, time_x, time_y)
             time_x = time_x * math.exp(atten * self.step_length)
             time_y = time_y * math.exp(atten * self.step_length)
@@ -195,10 +198,6 @@ class NonlinearFiber(LinearFiber):
             ffty = cfft(time_y)
 
             time_x, time_y = self.linear_prop_cupy(D, fftx, ffty, self.step_length / 2)
-
-#         bar.finish()
-
-#         print('*' * 20 + "end simulation" + '*' * 20)
 
         last_step = self.length - self.step_length * step_number
         last_step_eff = (1 - np.exp(-self.alpha_lin * last_step)) / self.alpha_lin
@@ -212,14 +211,14 @@ class NonlinearFiber(LinearFiber):
         fftx = cfft(time_x)
         ffty = cfft(time_y)
 
-        time_x, time_y = self.linear_prop_cupy(D, fftx, ffty, last_step / 2)
+        time_x, time_y = self.linear_prop_cupy(D, fftx, ffty, last_step / 2,plan)
         time_x, time_y = self.nonlinear_prop_cupy(N, time_x, time_y, last_step_eff)
         time_x = time_x * math.exp(atten * last_step)
         time_y = time_y * math.exp(atten * last_step)
 
         fftx = cfft(time_x)
         ffty = cfft(time_y)
-        time_x, time_y = self.linear_prop_cupy(D, fftx, ffty, last_step / 2)
+        time_x, time_y = self.linear_prop_cupy(D, fftx, ffty, last_step / 2,plan)
 
         temp[0, :] = cp.asnumpy(time_x)
         temp[1, :] = cp.asnumpy(time_y)
@@ -242,11 +241,18 @@ class NonlinearFiber(LinearFiber):
 
         return time_x, time_y
 
-    def linear_prop_cupy(self, D, fftx, ffty, length):
-        time_x = icfft(fftx * cp.exp(D * length))
-        time_y = icfft(ffty * cp.exp(D * length))
+    def linear_prop_cupy(self, D, timex, timey, length,plan):
 
+        freq_x = improved_fft(timex,overwrite_x=True,plan=plan)
+        freq_y = improved_fft(timey, overwrite_x=True, plan=plan)
+
+        freq_x = freq_x * cp.exp(D * length)
+        freq_y = freq_y * cp.exp(D * length)
+
+        time_x = improved_ifft(freq_x,overwrite_x=True,plan=plan)
+        time_y = improved_ifft(freq_y,overwrite_y=True,plan=plan)
         return time_x, time_y
+
 
     def inplace_prop(self, signal):
         if self.backend =='cupy':
