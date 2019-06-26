@@ -1,4 +1,5 @@
 import copy
+from collections import Iterable
 
 import numpy as np
 from scipy.io import loadmat
@@ -396,7 +397,7 @@ class WdmSignal(object):
 
 class WdmSignalFromArray(object):
 
-    def __init__(self, field, frequencys, fs_in_fiber, signal_under_study, signal_index):
+    def __init__(self, field, frequencys, fs_in_fiber, signal_under_study:List, signal_index):
         '''
 
         :param field:   WDM multiplexed fiedl
@@ -426,6 +427,18 @@ class WdmSignalFromArray(object):
     @property
     def pol_number(self):
         return self.__filed.shape[0]
+
+    def get_signal(self,signal_index):
+        '''
+
+        :param signal_index:signal index in original wdm signal
+        :return: ith channel's signal
+        '''
+        if not isinstance(self.signal_index,Iterable):
+            self.signal_index = [self.signal_index]
+
+        index = self.signal_index.index(signal_index)
+        return self.signal_under_study[index]
 
     @property
     def shape(self):

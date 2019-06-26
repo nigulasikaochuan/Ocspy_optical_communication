@@ -1,5 +1,6 @@
 import math
 import typing
+from collections import Iterable
 
 import Ocspy.Base as base
 import Ocspy.Instrument as instrument
@@ -49,6 +50,8 @@ def generate_qam_signal(power: typing.Union[typing.List, float], baudrate: typin
 
 def to_wdm_array(wdmsignal: base.WdmSignal, signal_under_test_index):
     samples = np.copy(wdmsignal[:])
+    if not isinstance(signal_under_test_index, Iterable):
+        signal_under_test_index = [signal_under_test_index]
     signal_under_test = []
     for index in signal_under_test_index:
         signal_under_test.append(wdmsignal.signals[index])
