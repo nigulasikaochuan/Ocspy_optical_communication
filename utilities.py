@@ -17,6 +17,8 @@ def calc_sps_in_fiber(nch, spacing, baudrate):
     else:
         highest = 4 * ((nch - 1) / 2 * spacing + spacing / 2)
         sps_in_fiber = math.ceil(highest / baudrate)
+    if divmod(sps_in_fiber,2)[1]!=0:
+        sps_in_fiber+=1
     return sps_in_fiber
 
 
