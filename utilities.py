@@ -29,10 +29,10 @@ def generate_qam_signal(power: typing.Union[typing.List, float], baudrate: typin
 
     if not isinstance(power, list):
         power = [power]
-        power = np.array(power)
-    if not isinstance(baudrate, float):
+    power = np.array(power)
+    if not isinstance(baudrate, list):
         baudrate = [baudrate]
-        baudrate = np.array(baudrate)
+    baudrate = np.array(baudrate)
 
     if unit.lower() == 'ghz':
         baudrate = baudrate * 1e9
