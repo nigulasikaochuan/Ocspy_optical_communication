@@ -8,6 +8,7 @@ from typing import List
 from ..tool.tool import freq2lamb
 import os
 import Ocspy.qamdata
+
 base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
@@ -69,11 +70,11 @@ class Signal(object):
         if unit == 'dbm':
             pass
         else:
-            power = power/10
-            power = 10**power
-            power = power/1000
-        each_pol_power = power/self.pol_number
-        self[:] = np.sqrt(each_pol_power)*self[:]
+            power = power / 10
+            power = 10 ** power
+            power = power / 1000
+        each_pol_power = power / self.pol_number
+        self[:] = np.sqrt(each_pol_power) * self[:]
 
     def set_signal_power(self, power, unit="dbm"):
         if unit == 'dbm':
@@ -186,7 +187,7 @@ class Signal(object):
         temp = np.zeros_like(self.data_sample)
         for i in range(self.pol_number):
             temp[i, :] = self.data_sample[i, :] / \
-                np.sqrt(np.mean(np.abs(self.data_sample[i, :]) ** 2))
+                         np.sqrt(np.mean(np.abs(self.data_sample[i, :]) ** 2))
         return temp
 
     def normalize_power(self):
@@ -221,15 +222,15 @@ class Signal(object):
     def __str__(self):
         try:
             string = f'\n\tSymbol rate:{self.symbol_rate / 1e9}[Ghz]\n\tfs_in_fiber:{self.fs_in_fiber / 1e9}[Ghz]\n\t' \
-                f'signal_power_in_fiber:{self.measure_power_in_fiber()} [W]\n\t' \
-                f'signal_power_in_fiber:{self.measure_power_in_fiber("dbm")} [dbm]\n\t' \
-                f'wave_length is {self.center_wave_length * 1e9} [nm]\n\t' \
-                f'center_frequence is {self.center_frequence * 1e-12}[Thz]\n\t'
+                     f'signal_power_in_fiber:{self.measure_power_in_fiber()} [W]\n\t' \
+                     f'signal_power_in_fiber:{self.measure_power_in_fiber("dbm")} [dbm]\n\t' \
+                     f'wave_length is {self.center_wave_length * 1e9} [nm]\n\t' \
+                     f'center_frequence is {self.center_frequence * 1e-12}[Thz]\n\t'
 
         except Exception as e:
             string = f'\n\tSymbol rate:{self.symbol_rate / 1e9}[Ghz]\n\tfs_in_fiber:{self.fs_in_fiber / 1e9}[Ghz]\n\t' \
-                f'wave_length is {self.center_wave_length * 1e9} [nm]\n\t' \
-                f'center_frequence is {self.center_frequence * 1e-12}[Thz]\n\t'
+                     f'wave_length is {self.center_wave_length * 1e9} [nm]\n\t' \
+                     f'center_frequence is {self.center_frequence * 1e-12}[Thz]\n\t'
         return string
 
     def __repr__(self):
@@ -302,7 +303,7 @@ class WdmSignal(object):
         self.signals = signals
         self.grid_size = grid_size
         self.center_frequence = (
-            np.min(self.absolute_frequences) + np.max(self.absolute_frequences)) / 2
+                                        np.min(self.absolute_frequences) + np.max(self.absolute_frequences)) / 2
         self.center_wave_length = freq2lamb(self.center_frequence)
         self.__multiplexed_filed = np.atleast_2d(multiplexed_filed)
 
@@ -314,6 +315,9 @@ class WdmSignal(object):
     def __getitem__(self, slice):
         assert self.__multiplexed_filed is not None
         return self.__multiplexed_filed[slice]
+
+    def __len__(self):
+        return len(self.signals)
 
     # @property
     # def center_frequence(self):
@@ -377,8 +381,8 @@ class WdmSignal(object):
     def __str__(self):
 
         string = f"center_frequence is {self.center_frequence * 1e-12} [THZ]\t\n" \
-            f"power is {self.measure_power_in_fiber()} [dbm] \t\n" \
-            f"power is {self.measure_power_in_fiber(unit='w')} [w]\t\n"
+                 f"power is {self.measure_power_in_fiber()} [dbm] \t\n" \
+                 f"power is {self.measure_power_in_fiber(unit='w')} [w]\t\n"
 
         return string
 
@@ -397,7 +401,7 @@ class WdmSignal(object):
 
 class WdmSignalFromArray(object):
 
-    def __init__(self, field, frequencys, fs_in_fiber, signal_under_study:List, signal_index):
+    def __init__(self, field, frequencys, fs_in_fiber, signal_under_study: List, signal_index):
         '''
 
         :param field:   WDM multiplexed fiedl
@@ -428,13 +432,13 @@ class WdmSignalFromArray(object):
     def pol_number(self):
         return self.__filed.shape[0]
 
-    def get_signal(self,signal_index):
+    def get_signal(self, signal_index):
         '''
 
         :param signal_index:signal index in original wdm signal
         :return: ith channel's signal
         '''
-        if not isinstance(self.signal_index,Iterable):
+        if not isinstance(self.signal_index, Iterable):
             self.signal_index = [self.signal_index]
 
         index = self.signal_index.index(signal_index)
@@ -482,8 +486,8 @@ class WdmSignalFromArray(object):
     def __str__(self):
 
         string = f"center_frequence is {self.center_frequence * 1e-12} [THZ]\t\n" \
-            f"power is {self.measure_power_in_fiber()} [dbm] \t\n" \
-            f"power is {self.measure_power_in_fiber(unit='w')} [w]\t\n"
+                 f"power is {self.measure_power_in_fiber()} [dbm] \t\n" \
+                 f"power is {self.measure_power_in_fiber(unit='w')} [w]\t\n"
 
         return string
 
