@@ -11,235 +11,128 @@ import Ocspy.qamdata
 
 base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-
 class Signal(object):
     '''
-        Signal:
-            This Signal is the base class for single carrier signal, the QamSignal inherit this class:
-            the property of Signal:
-                1. symbol_rate: GHZ
-                2. mf: the modulation format
-                3. symbol_length: the length of symbol
-                4. signal_power: the launch power of signal,the waveform will be set to this signal,when the signal pass
-                laser object
-                5. sps: the sample per symbol for dsp
-                6. sps in fiber： the sample per symbol for waveform in fiber,because of nonlinear effect of fiber, the sample
-                rate shuould greater than 2 time highest frequence of signal.
-                7.lam: the wavelength of the signal: [nm]
-
-            @property
-
+        This class is the base class of Signal,describe the base property of a signal in fiber
     '''
 
-    def __init__(self, **kwargs):
-        '''
+    def __init__(self, symbol_rate: float = 35e9, symbol_length: float = 65536,
+                 mf: str = '16qam', sps_for_dsp: int = 2,
+                 sps_in_fiber: int = 4, center_frequency: float = 193.1e12,
+                 unit_rate: str = 'Hz', unit_freq: str = 'Hz', launch_power: float = 0, is_dp=True
+                 ):
 
-        :param kwargs: 包含单信道信号的各项参数，包括：
-            1. symbol_rate 符号速率 【Hz】
-            2. mf 调制格式
-            3. symbol length 符号长度
-            4. signal_power  信号功率  【dbm】
-            5. sps：         发端dsp的采样率
-            6. sps_in_fiber: 光纤中采样率
-            8. center_frequence: Hz
-
-        property:
-            symbol:  the symbol to be sent, can only be accessed but can not be set
-
-
-        所有单位全部使用国际标准单位
-
-        '''
-
-        self._symbol = None
-        self.symbol_rate = kwargs['symbol_rate']
-        self.mf = kwargs['mf']
-        self.symbol_length = kwargs['symbol_length']
-        self.sps_in_fiber = kwargs['sps_in_fiber']
-        self.sps = kwargs['sps']
-        self.decision_symbol = None
-        self.data_sample = None
-        self.data_sample_in_fiber = None
-        self.center_frequence = kwargs['frequence']
-
-    @property
-    def symbol(self):
-        return self._symbol
-
-    def inplace_set_signal_power(self, power, unit='dbm'):
-        if unit == 'dbm':
-            pass
+        if unit_rate.lower() == 'hz':
+            unit_rate = 1
+        elif unit_rate.lower() == 'ghz':
+            unit_rate = 1e9
         else:
-            power = power / 10
-            power = 10 ** power
-            power = power / 1000
-        each_pol_power = power / self.pol_number
-        self[:] = np.sqrt(each_pol_power) * self[:]
+            raise Exception('The unit of baudrate must be Hz or GHz')
 
-    def set_signal_power(self, power, unit="dbm"):
-        if unit == 'dbm':
-            power_lin = power / 10
-            power_lin = 10 ** power_lin
-            power_lin = power_lin / 1000
-        else:
-            power_lin = power
-        self.inplace_normalize_power()
-        for i in range(self.pol_number):
-            self[i, :] = self[i, :] * np.sqrt(power_lin / self.pol_number)
+        if unit_freq.lower() == 'hz':
+            unit_freq = 1
+        elif unit_freq.lower() == 'thz':
+            unit_freq = 1e12
 
-    @property
-    def sample_number_in_fiber(self):
-        import warnings
-        if self.sps_in_fiber * self.symbol_length != self.data_sample_in_fiber.shape[1]:
-            warnings.warn(
-                "the sps_in_fiber * symbol length not equal the sample number stored in sample_number_fiber")
-            return self.data_sample_in_fiber.shape[1]
+        self.symbol_rate = symbol_rate * unit_rate
+        self.symbol_length = symbol_length
+        self.mf = mf
+        self.sps_in_dsp = sps_for_dsp
+        self.sps_in_fiber = sps_in_fiber
+        self.center_frequency = center_frequency * unit_freq
+        self.is_dp = True
 
-        return int(self.sps_in_fiber * self.symbol_length)
-
-    @property
-    def sample_number(self):
-        return self.sps * self.symbol_length
-
-    @property
-    def center_wave_length(self):
-
-        return c / self.center_frequence
-
-    def tonumpy(self):
-        '''
-
-        :return: reference to self.data_sample_in_fiber
-        if function not return a new ndarrya
-        change it outside will change the data_sample_in_fiber property of the object
-        '''
-        data_sample_in_fiber = copy.deepcopy(self.data_sample_in_fiber)
-        return data_sample_in_fiber
+        self.__ds_indsp = None
+        self.ds_infiber = None
+        self.launch_power = launch_power
 
     def __getitem__(self, index):
-        '''
 
-        :param index: Slice Object
-        :return: ndarray of the signal, change this ndarray will change the object
-
-        '''
-        assert self.data_sample_in_fiber is not None
-
-        return self.data_sample_in_fiber[index]
+        assert self.ds_infiber is not None
+        return self.ds_infiber[index]
 
     def __setitem__(self, index, value):
-        '''
-
-        :param   index: slice Object
-        :param   value: the value that to be set,must be ndarray
-        :return: None
-        '''
-        if self.data_sample_in_fiber is None:
-            self.data_sample_in_fiber = np.atleast_2d(value)
+        if self.ds_infiber == None:
+            self.ds_infiber[index] = np.at_least2d(value)
         else:
-
-            self.data_sample_in_fiber[index] = value
-
-    def measure_power_in_fiber(self, unit='w'):
-        '''
-
-        :return: signal power in the fiber, in unit [W]
-        '''
-        sample_in_fiber = np.atleast_2d(self.data_sample_in_fiber)
-        signal_power = 0
-        for i in range(sample_in_fiber.shape[0]):
-            signal_power += np.mean(np.abs(sample_in_fiber[i, :]) ** 2)
-        if unit == "w":
-            return signal_power
-        else:
-            return 10 * np.log10(signal_power * 1000)
+            self.ds_infiber[index] = value
 
     @property
     def fs(self):
-        if self.sps is None:
+        if self.sps_in_dsp is None:
             return 0
-        return self.symbol_rate * self.sps
+        return self.symbol_rate * self.sps_in_dsp
 
     @property
     def fs_in_fiber(self):
         return self.symbol_rate * self.sps_in_fiber
 
-    def inplace_normalize_power(self):
-        '''
-            in place operation
-        :return:
-        '''
-        self[:] = self.normalize_power()
-
-    def remove_dc(self):
-        for i in range(self.pol_number):
-            self[i, :] = self[i, :] - np.mean(self[i, :])
-
     @property
     def pol_number(self):
-        return self.data_sample_in_fiber.shape[0]
-
-    def inplace_normalize_dsp_sample(self):
-        temp = self.normalize_dsp_sample()
-        self.data_sample = temp
-
-    def normalize_dsp_sample(self):
-        temp = np.zeros_like(self.data_sample)
-        for i in range(self.pol_number):
-            temp[i, :] = self.data_sample[i, :] / \
-                         np.sqrt(np.mean(np.abs(self.data_sample[i, :]) ** 2))
-        return temp
-
-    def normalize_power(self):
-        '''
-
-        new ndarray will be returned , the signal object itself is not changed
-        :param signal:
-        :return: ndarray and signal object will not be changed
-
-        '''
-        temp = np.zeros_like(self.data_sample_in_fiber)
-        for i in range(self.data_sample_in_fiber.shape[0]):
-            temp[i, :] = self.data_sample_in_fiber[i, :] / np.sqrt(
-                np.mean(np.abs(self.data_sample_in_fiber[i, :]) ** 2))
-
-        return temp
-
-    def upsample(self, symbol_x, sps):
-        '''
-
-        :param symbol_x: 1d array
-        :param sps: sample per symbol
-        :return: 2-d array after inserting zeroes between symbols
-        '''
-        assert symbol_x.ndim == 1
-        symbol_x.shape = -1, 1
-        symbol_x = np.tile(symbol_x, (1, sps))
-        symbol_x[:, 1:] = 0
-        symbol_x.shape = 1, -1
-        return symbol_x
-
-    def __str__(self):
-        try:
-            string = f'\n\tSymbol rate:{self.symbol_rate / 1e9}[Ghz]\n\tfs_in_fiber:{self.fs_in_fiber / 1e9}[Ghz]\n\t' \
-                     f'signal_power_in_fiber:{self.measure_power_in_fiber()} [W]\n\t' \
-                     f'signal_power_in_fiber:{self.measure_power_in_fiber("dbm")} [dbm]\n\t' \
-                     f'wave_length is {self.center_wave_length * 1e9} [nm]\n\t' \
-                     f'center_frequence is {self.center_frequence * 1e-12}[Thz]\n\t'
-
-        except Exception as e:
-            string = f'\n\tSymbol rate:{self.symbol_rate / 1e9}[Ghz]\n\tfs_in_fiber:{self.fs_in_fiber / 1e9}[Ghz]\n\t' \
-                     f'wave_length is {self.center_wave_length * 1e9} [nm]\n\t' \
-                     f'center_frequence is {self.center_frequence * 1e-12}[Thz]\n\t'
-        return string
-
-    def __repr__(self):
-
-        return self.__str__()
+        return self.ds_infiber.shape[0]
 
     @property
     def shape(self):
-        return self.data_sample_in_fiber.shape
+        assert self.ds_infiber is not None
+        return self.ds_infiber.shape
+
+    def __str__(self):
+
+        string = f'Baud Rate is   {self.symbol_rate / 1e9} [GHz]\t\n' \
+            f'Modulation Format is {self.mf}\t\n' \
+            f'Launch power is {self.launch_power}[dbm]\t\n' \
+            f'center_frequency {self.center_frequency / 1e12} [THz]'
+        #                  f'OSNR is {self.osnr}'
+        return string
+
+    def __repr__(self):
+        return self.__str__()
+
+
+class QamSignal(Signal):
+
+    def __init__(self, symbol_rate: float = 35e9, symbol_length: float = 65536,
+                 mf: str = '16-qam', sps_for_dsp: int = 2,
+                 sps_in_fiber: int = 4, center_frequency: float = 193.1e12,
+                 unit_rate: str = 'Hz', unit_freq: str = 'Hz', launch_power: float = 0, is_dp=True,
+                 from_demux=False):
+
+        super().__init__(symbol_rate=symbol_rate, symbol_length=symbol_length, mf=mf, sps_for_dsp=sps_for_dsp,
+                         sps_in_fiber=sps_in_fiber,
+                         center_frequency=center_frequency, unit_rate=unit_rate, unit_freq=unit_freq,
+                         launch_power=launch_power, is_dp=is_dp)
+
+        self.from_demux = from_demux
+        if not self.from_demux:
+            self.__init()
+
+    def __init(self):
+        if self.mf == 'qpsk':
+            order = 4
+        else:
+            order = self.mf.split('-')[0]
+            order = int(order)
+
+        if self.is_dp:
+            self.message = np.random.randint(low=0, high=order, size=(2, self.symbol_length))
+        else:
+            self.message = np.random.randint(low=0, high=order, size=(1, self.symbol_length))
+
+        qam_data = (f'{base_path}/' + 'qamdata/' + str(order) + 'qam.mat')
+        qam_data = loadmat(qam_data)['x']
+
+        symbol = np.zeros(self.message.shape, dtype=np.complex)
+        symbol = np.atleast_2d(symbol)
+        for i in range(symbol.shape[0]):
+            for msg in np.unique(self.message[i, :]):
+                symbol[i, self.message[i, :] == msg] = qam_data[0, msg]
+
+        self._symbol = symbol
+
+    @property
+    def symbol(self):
+        return self._symbol
+
 
 
 class SignalFromNumpyArray(Signal):
@@ -505,54 +398,3 @@ class WdmSignalFromArray(object):
 
         return power
 
-
-class QamSignal(Signal):
-
-    def __init__(self, symbol_rate=35e9, mf="16-qam", symbol_length=2 ** 16, sps=2, sps_in_fiber=4,
-                 is_dp=True, frequence=193.1e12, is_from_array=False, is_from_demux=False):
-        '''
-
-        :param symbol_rate: [hz]   符号速率
-        :param mf: 调制格式,16-qam,32-qam,64-qam,qpsk
-        :param signal_power: [dbm] 信号功率
-        :param symbol_length:      符号长度
-        :param sps: 发端dsp的过采样率
-        :param sps_infiber: 在光纤中传输时的过采样率
-        '''
-
-        super().__init__(
-            **dict(symbol_length=symbol_length, symbol_rate=symbol_rate, mf=mf, sps=sps,
-                   sps_in_fiber=sps_in_fiber, frequence=frequence)
-        )
-        self.is_from_demux = is_from_demux
-        if self.mf == 'qpsk':
-            order = 4
-        else:
-            order = self.mf.split('-')[0]
-            order = int(order)
-        if not is_from_array and not self.is_from_demux:
-            if is_dp:
-
-                self.message = np.random.randint(
-                    low=0, high=order, size=(2, self.symbol_length))
-            else:
-                self.message = np.random.randint(
-                    low=0, high=order, size=(1, self.symbol_length))
-
-            self.is_dp = is_dp
-            # self.symbol = None
-
-            self.init(order)
-
-    def init(self, order):
-
-        qam_data = (f'{base_path}/' + 'qamdata/' + str(order) + 'qam.mat')
-        qam_data = loadmat(qam_data)['x']
-
-        symbol = np.zeros(self.message.shape, dtype=np.complex)
-        symbol = np.atleast_2d(symbol)
-        for i in range(symbol.shape[0]):
-            for msg in np.unique(self.message[i, :]):
-                symbol[i, self.message[i, :] == msg] = qam_data[0, msg]
-
-        self._symbol = symbol
