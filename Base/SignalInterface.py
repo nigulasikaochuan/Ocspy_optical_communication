@@ -49,11 +49,11 @@ class Signal(object):
     def __getitem__(self, index):
 
         assert self.ds_infiber is not None
-        return self.ds_infiber[index]
+        return np.atleast_2d(self.ds_infiber[index])
 
     def __setitem__(self, index, value):
         if self.ds_infiber == None:
-            self.ds_infiber[index] = np.at_least2d(value)
+            self.ds_infiber[index] = np.atleast_2d(value)
         else:
             self.ds_infiber[index] = value
 
@@ -75,6 +75,11 @@ class Signal(object):
     def shape(self):
         assert self.ds_infiber is not None
         return self.ds_infiber.shape
+
+    @property
+    def center_wave_length(self):
+
+        return c/self.center_frequency
 
     def __str__(self):
 
@@ -131,7 +136,9 @@ class QamSignal(Signal):
 
     @property
     def symbol(self):
-        return self._symbol
+        return np.atleast_2d(self._symbol)
+
+
 
 
 
@@ -177,12 +184,15 @@ class SignalFromNumpyArray(Signal):
                 'The frequence not provided enough, please ensure the center_frequency and the absolute_frequenc are all provided')
 
 
+#  WdmSignal
+# 1. 删除
+
 class WdmSignal(object):
     '''
         WdmSignal Class
     '''
 
-    def __init__(self, signals: List[Signal], grid_size, multiplexed_filed):
+    def __init__(self, signals: List[Signal], grid_size, multiplexed_filed, cut_index: List):
         '''
 
         :param signals: list of signal
@@ -195,10 +205,19 @@ class WdmSignal(object):
         '''
         self.signals = signals
         self.grid_size = grid_size
-        self.center_frequence = (
-                                        np.min(self.absolute_frequences) + np.max(self.absolute_frequences)) / 2
-        self.center_wave_length = freq2lamb(self.center_frequence)
+        self.center_frequency = (np.min(self.absolute_frequences) + np.max(self.absolute_frequences)) / 2
         self.__multiplexed_filed = np.atleast_2d(multiplexed_filed)
+        self.cut_index = cut_index
+
+        for index, signal in enumerate(signals):
+            if index in self.cut_index:
+                signal._symbol = None
+                signal.ds_infiber = None
+                signal.ds_in_dsp = None
+
+    @property
+    def center_wave_length(self):
+        return c / self.center_frequency
 
     def __setitem__(self, slice, value):
 
@@ -207,15 +226,10 @@ class WdmSignal(object):
 
     def __getitem__(self, slice):
         assert self.__multiplexed_filed is not None
-        return self.__multiplexed_filed[slice]
+        return np.atleast_2d(self.__multiplexed_filed[slice])
 
     def __len__(self):
         return len(self.signals)
-
-    # @property
-    # def center_frequence(self):
-    #     frequences = self.absolute_frequences()
-    #     return (np.max(frequences)+np.min(frequences))/2
 
     @property
     def pol_number(self):
@@ -241,11 +255,11 @@ class WdmSignal(object):
         return lambdas
 
     @property
-    def data_sample_in_fiber(self):
-        return self.__multiplexed_filed
+    def ds_infiber(self):
+        return np.atleast_2d(self.__multiplexed_filed)
 
-    @data_sample_in_fiber.setter
-    def data_sample_in_fiber(self, value):
+    @ds_infiber.setter
+    def ds_infiber(self, value):
         self.__multiplexed_filed = value
 
     @property
@@ -261,7 +275,7 @@ class WdmSignal(object):
 
         :return:
         '''
-        return np.array([signal.center_frequence for signal in self.signals])
+        return np.array([signal.center_frequency for signal in self.signals])
 
     @property
     def relative_frequences(self):
@@ -269,132 +283,5 @@ class WdmSignal(object):
 
         :return: frequences centered in zero frequence , an ndarray
         '''
-        return self.absolute_frequences - self.center_frequence
-
-    def __str__(self):
-
-        string = f"center_frequence is {self.center_frequence * 1e-12} [THZ]\t\n" \
-                 f"power is {self.measure_power_in_fiber()} [dbm] \t\n" \
-                 f"power is {self.measure_power_in_fiber(unit='w')} [w]\t\n"
-
-        return string
-
-    def measure_power_in_fiber(self, unit='dbm'):
-
-        power = 0
-        for i in range(self.pol_number):
-            power += np.mean(np.abs(self[i, :]) ** 2)
-
-        if unit == 'dbm':
-            power = power * 1000
-            power = 10 * np.log10(power)
-
-        return power
-
-
-class WdmSignalFromArray(object):
-
-    def __init__(self, field, frequencys, fs_in_fiber, signal_under_study: List, signal_index):
-        '''
-
-        :param field:   WDM multiplexed fiedl
-        :param center_freq: Hz will be caculated from frequencys
-        :param frequencys: Hz each channel's frequencys, the passband frequence
-        :param fs_in_fiber: Hz
-        :param signal_index: the index of signal in original wdmsignal
-        :param signal_under_study: the signal to study
-        '''
-        self.__filed = field
-        self.fs_in_fiber = fs_in_fiber
-        self.frequences = frequencys
-        self.center_frequence = np.mean(
-            [np.max(frequencys), np.min(frequencys)])
-        self.center_wave_length = freq2lamb(self.center_frequence)  # m
-        self.signal_under_study = signal_under_study
-        self.signal_index = signal_index
-
-    def __setitem__(self, slice, value):
-
-        assert self.__filed is not None
-        self.__filed[slice] = value
-
-    def __getitem__(self, slice):
-
-        assert self.__filed is not None
-        return self.__filed[slice]
-
-    @property
-    def pol_number(self):
-        return self.__filed.shape[0]
-
-    def get_signal(self, signal_index):
-        '''
-
-        :param signal_index:signal index in original wdm signal
-        :return: ith channel's signal
-        '''
-        if not isinstance(self.signal_index, Iterable):
-            self.signal_index = [self.signal_index]
-
-        index = self.signal_index.index(signal_index)
-        return self.signal_under_study[index]
-
-    @property
-    def shape(self):
-        return self.__filed.shape
-
-    @property
-    def sample_number_in_fiber(self):
-        return self.__filed.shape[1]
-
-    @property
-    def lam(self):
-        lambdas = []
-        for freq in self.frequences:
-            lambdas.append(freq2lamb(freq))
-        return lambdas
-
-    @property
-    def data_sample_in_fiber(self):
-        return self.__filed
-
-    @data_sample_in_fiber.setter
-    def data_sample_in_fiber(self, value):
-        self.__filed = value
-
-    @property
-    def absolute_frequences(self):
-        '''
-
-        :return:
-        '''
-        return self.frequences
-
-    @property
-    def relative_frequences(self):
-        '''
-
-        :return: frequences centered in zero frequence , an ndarray
-        '''
-        return self.absolute_frequences - self.center_frequence
-
-    def __str__(self):
-
-        string = f"center_frequence is {self.center_frequence * 1e-12} [THZ]\t\n" \
-                 f"power is {self.measure_power_in_fiber()} [dbm] \t\n" \
-                 f"power is {self.measure_power_in_fiber(unit='w')} [w]\t\n"
-
-        return string
-
-    def measure_power_in_fiber(self, unit='dbm'):
-
-        power = 0
-        for i in range(self.pol_number):
-            power += np.mean(np.abs(self[i, :]) ** 2)
-
-        if unit == 'dbm':
-            power = power * 1000  # convert to mw
-            power = 10 * np.log10(power)
-
-        return power
+        return self.absolute_frequences - self.center_frequency
 
