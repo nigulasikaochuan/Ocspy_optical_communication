@@ -408,6 +408,8 @@ class WdmSignalFromArray(object):
         :param center_freq: Hz will be caculated from frequencys
         :param frequencys: Hz each channel's frequencys, the passband frequence
         :param fs_in_fiber: Hz
+        :param signal_index: the index of signal in original wdmsignal
+        :param signal_under_study: the signal to study
         '''
         self.__filed = field
         self.fs_in_fiber = fs_in_fiber
