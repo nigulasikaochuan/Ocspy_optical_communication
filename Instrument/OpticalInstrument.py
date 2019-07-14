@@ -125,7 +125,7 @@ class Demultiplex(object):
         if isinstance(wdm_signal, WdmSignal):
             signal_under_study = wdm_signal.signals[signal_index]
         elif isinstance(wdm_signal, WdmSignalFromArray):
-            signal_under_study = wdm_signal.signal_under_study
+            signal_under_study = wdm_signal.get_signal(signal_index)
         else:
             raise TypeError('only WdmSignal Object or WdmSignalFromArray Object is accepted')
         
