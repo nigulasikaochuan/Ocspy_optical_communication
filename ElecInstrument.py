@@ -64,6 +64,17 @@ class PulseShaping(object):
         return signal_interface
 
 
+class ADC(object):
+
+    def __call__(self, signal, sps_in_fiber, sps):
+        # from resampy import resample
+
+        tempx = resample(signal[0], sps_in_fiber, sps, filter='kaiser_fast')
+        tempy = resample(signal[1], sps_in_fiber, sps, filter='kaiser_fast')
+        new_sample = np.array([tempx, tempy])
+
+        return new_sample
+
 class DAC(object):
 
     def __init__(self, clipping_ratio, resolution_bits, is_quanti):

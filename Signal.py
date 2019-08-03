@@ -123,6 +123,10 @@ class QamSignal(Signal):
     def symbol(self):
         return self._symbol
 
+    @property
+    def msg(self):
+        return self.__msg
+
 
 class WdmSignal(object):
     def __init__(self, signals: List[Signal], samples):

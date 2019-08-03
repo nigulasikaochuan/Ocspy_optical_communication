@@ -1,18 +1,23 @@
 import copy
+import os
 
 import numba
 from numba import prange
 from numpy.fft import fftfreq
+from scipy.io import loadmat
 from scipy.signal import fftconvolve, correlate, lfilter
 
-from ..Signal import Signal
-from Filter import _rcosdesign
+from Signal import Signal
+from Filter import  rrcfilter
 import numpy as np
+
+from dsp_tools import exp_decision, decision, segment_axis, cal_symbols_qam, cal_scaling_factor_qam
+
 
 class MatchedFilter(object):
 
     def __init__(self, roll_off, sps, span=1024):
-        self.h = _rcosdesign(roll_off,int(span * sps), sps)
+        self.h = rrcfilter(roll_off,int(span * sps), sps)
         self.delay = int(span / 2 * sps)
 
     def match_filter(self, signal):
@@ -49,17 +54,21 @@ def syncsignal(symbol_tx, sample_rx, sps):
         # 不会改变原信号
 
     '''
-    assert sample_rx.ndim == 1
-    assert symbol_tx.ndim == 1
-    assert len(sample_rx) >= len(symbol_tx)
-    symbol_tx = np.atleast_2d(symbol_tx)[0, :]
-    sample_rx = np.atleast_2d(sample_rx)[0, :]
+    symbol_tx = np.atleast_2d(symbol_tx)
+    sample_rx = np.atleast_2d(sample_rx)
+    out = np.zeros_like(sample_rx)
+    # assert sample_rx.ndim == 1
+    # assert symbol_tx.ndim == 1
+    assert len(sample_rx.shape[1]) >= len(symbol_tx.shape[1])
+    for i in range(symbol_tx.shape[0]):
+        symbol_tx_temp = symbol_tx[i, :]
+        sample_rx_temp = sample_rx[i, :]
 
-    res = correlate(sample_rx[::sps], symbol_tx)
+        res = correlate(sample_rx_temp[::sps], symbol_tx_temp)
 
-    index = np.argmax(np.abs(res))
+        index = np.argmax(np.abs(res))
 
-    out = np.roll(sample_rx, sps * (-index - 1 + symbol_tx.shape[0]))
+        out[i] = np.roll(sample_rx_temp, sps * (-index - 1 + symbol_tx_temp.shape[0]))
     return out
 
 
@@ -239,6 +248,7 @@ def dual_pol_time_domain_lms_equalizer_pll(signal, ntaps, sps, constl=None, trai
     data_sample_in_fiber = signal[:]
     samplex = segment_axis(data_sample_in_fiber[0, :], ntaps, ntaps - sps)
     sampley = segment_axis(data_sample_in_fiber[1, :], ntaps, ntaps - sps)
+    assert len(samplex==sampley)
     if train_symbol is not None:
         xsymbol = train_symbol[0, ntaps // 2 // sps:]
         ysymbol = train_symbol[1, ntaps // 2 // sps:]
@@ -246,8 +256,8 @@ def dual_pol_time_domain_lms_equalizer_pll(signal, ntaps, sps, constl=None, trai
 
     xsymbols = np.zeros((1, symbol_length), dtype=np.complex128)
     ysymbols = np.zeros((1, symbol_length), dtype=np.complex128)
-    errorsx = np.zeros((1, niter * samplex.shape[0]), dtype=np.float64)
-    errorsy = np.zeros((1, niter * samplex.shape[0]), dtype=np.float64)
+    errorsx = np.zeros((niter,  samplex.shape[0]), dtype=np.float64)
+    errorsy = np.zeros((niter,  samplex.shape[0]), dtype=np.float64)
     pll_phase = np.zeros((2, samplex.shape[0]), dtype=np.float64)
     # pll_error = np.zeros((2, samplex.shape[0]), dtype=np.complex128)
 
@@ -267,7 +277,7 @@ def dual_pol_time_domain_lms_equalizer_pll(signal, ntaps, sps, constl=None, trai
                 xout_cpr = xout * np.exp(-1j * 0)
                 yout_cpr = yout * np.exp(-1j * 0)
 
-            if train_symbol is not None:
+            if train_symbol is not None and j ==0:
                 errorx = __calc_error_train(xout_cpr, symbol=xsymbol[i])
                 errory = __calc_error_train(yout_cpr, symbol=ysymbol[i])
                 xout_cpr_decision = xsymbol[i]
@@ -275,7 +285,7 @@ def dual_pol_time_domain_lms_equalizer_pll(signal, ntaps, sps, constl=None, trai
             else:
                 assert constl is not None
                 # assert constl.ndim ==1
-
+                constl = np.atleast_2d(constl)
                 if constl.ndim != 2:
                     raise Exception("constl must be 2d")
                 errorx = __calc_error_dd(xout_cpr, constl)
@@ -312,10 +322,10 @@ def dual_pol_time_domain_lms_equalizer_pll(signal, ntaps, sps, constl=None, trai
 
                 hyy[0, i] = weight[3][0, ntaps // 2 + 1].real
 
-            errorsx[0, i] = np.abs(errorx)
-            errorsy[0, i] = np.abs(errory)
+            errorsx[niter, i] = np.abs(errorx)
+            errorsy[niter, i] = np.abs(errory)
 
-    return xsymbols[0, :], ysymbols[0, :], weight, errorsx, errorsy, (hxx, hxy, hyx, hyy)
+    return xsymbols, ysymbols, weight, errorsx, errorsy, (hxx, hxy, hyx, hyy)
 
 
 @numba.jit(cache=True)
@@ -344,8 +354,8 @@ def dual_pol_time_domain_lms_equalizer(signal, ntaps, sps, constl=None, train_sy
     weight = __dual_pol_init_lms_weight(ntaps)  # xx xy yx yy
     xsymbols = np.zeros((1, symbol_length), dtype=np.complex128)
     ysymbols = np.zeros((1, symbol_length), dtype=np.complex128)
-    errorsx = np.zeros((1, niter * samplex.shape[0]), dtype=np.float64)
-    errorsy = np.zeros((1, niter * samplex.shape[0]), dtype=np.float64)
+    errorsx = np.zeros((niter,  samplex.shape[0]), dtype=np.float64)
+    errorsy = np.zeros((niter,  samplex.shape[0]), dtype=np.float64)
     for j in range(niter):
         for i in range(samplex.shape[0]):
             xout = np.sum(samplex[i, ::-1] * weight[0][0]) + np.sum(sampley[i, ::-1] * weight[1][0])
@@ -357,7 +367,7 @@ def dual_pol_time_domain_lms_equalizer(signal, ntaps, sps, constl=None, train_sy
             else:
                 assert constl is not None
                 # assert constl.ndim ==1
-
+                constl = np.atleast_2d(constl)
                 if constl.ndim != 2:
                     raise Exception("constl must be 2d")
 
@@ -373,10 +383,10 @@ def dual_pol_time_domain_lms_equalizer(signal, ntaps, sps, constl=None, train_sy
             if j == niter - 1:
                 xsymbols[0, i] = xout
                 ysymbols[0, i] = yout
-            errorsx[0, i] = np.abs(errorx)
-            errorsy[0, i] = np.abs(errory)
+            errorsx[niter, i] = np.abs(errorx)
+            errorsy[niter, i] = np.abs(errory)
 
-    return xsymbols[0,:], ysymbols[0,:], weight, errorsx, errorsy
+    return xsymbols, ysymbols, weight, errorsx, errorsy
 
 
 @numba.jit(cache=True)
@@ -439,50 +449,9 @@ def demap_to_msg_v2(receive_symbols, order,do_normal=True):
     receive_symbols = receive_symbols[0]
     if do_normal:
         receive_symbols = receive_symbols/np.sqrt(np.mean(receive_symbols.real**2+receive_symbols.imag**2))
-
-    base_path = os.path.abspath(__file__)
-    base_path = os.path.dirname(os.path.dirname(base_path))
-
-    qam_data_in_order = loadmat(f'{base_path}/qamdata/{order}qam.mat')['x'][0]
+    qam_data_in_order = np.load(f'{order}qam.npy')[0]
     constl = cal_symbols_qam(16) / np.sqrt(cal_scaling_factor_qam(16))
     msg = __demap_to_msg_jit(receive_symbols, qam_data_in_order, constl)
 
     return msg
 
-
-def demap_to_msg(rx_symbols, order, do_normal=True):
-    '''
-    :param rx_symbols:1d array or 2d array if 2d the shape[0] must be 1
-    :param do_normal: if True the rx_symbols will be normalized to 1
-    :return: 2d array msg, the shape[0] is 1
-    '''
-
-    from scipy.io import loadmat
-
-    base_path = os.path.abspath(__file__)
-    base_path = os.path.dirname(os.path.dirname(base_path))
-
-    if order == 8:
-        raise NotImplementedError('Not implemented yet')
-
-    constl = cal_symbols_qam(order) / np.sqrt(cal_scaling_factor_qam(order))
-    rx_symbols = np.atleast_2d(rx_symbols)
-    assert rx_symbols.shape[0] == 1
-    rx_symbols = rx_symbols[0]
-
-    qam_data = loadmat(f'{base_path}/qamdata/{order}qam.mat')['x'][0]
-    msg = np.zeros((1, rx_symbols.shape[0]))
-    if do_normal:
-        rx_symbols = rx_symbols / np.sqrt(np.mean(rx_symbols.imag ** 2 + rx_symbols.real ** 2))
-
-    for index, symbol in enumerate(rx_symbols):
-        decision_symbol = decision(symbol, constl=np.atleast_2d(constl))
-
-        choose = np.abs(decision_symbol - qam_data) < np.spacing(1)
-        #         print(choose)
-        #         print(np.nonzero(choose)[0])
-        msg[0, index] = (np.nonzero(choose)[0])
-    #         print(msg[0,index])
-    #         break
-
-    return msg.astype(np.int)[0, :]
