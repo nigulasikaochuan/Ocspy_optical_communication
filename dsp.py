@@ -17,7 +17,7 @@ from dsp_tools import exp_decision, decision, segment_axis, cal_symbols_qam, cal
 class MatchedFilter(object):
 
     def __init__(self, roll_off, sps, span=1024):
-        self.h = rrcfilter(roll_off,int(span * sps), sps)
+        self.h = rrcfilter(roll_off,span, sps)
         self.delay = int(span / 2 * sps)
 
     def match_filter(self, signal):
@@ -59,7 +59,7 @@ def syncsignal(symbol_tx, sample_rx, sps):
     out = np.zeros_like(sample_rx)
     # assert sample_rx.ndim == 1
     # assert symbol_tx.ndim == 1
-    assert len(sample_rx.shape[1]) >= len(symbol_tx.shape[1])
+    assert sample_rx.shape[1] >= symbol_tx.shape[1]
     for i in range(symbol_tx.shape[0]):
         symbol_tx_temp = symbol_tx[i, :]
         sample_rx_temp = sample_rx[i, :]
@@ -322,8 +322,8 @@ def dual_pol_time_domain_lms_equalizer_pll(signal, ntaps, sps, constl=None, trai
 
                 hyy[0, i] = weight[3][0, ntaps // 2 + 1].real
 
-            errorsx[niter, i] = np.abs(errorx)
-            errorsy[niter, i] = np.abs(errory)
+            errorsx[j, i] = np.abs(errorx)
+            errorsy[j, i] = np.abs(errory)
 
     return xsymbols, ysymbols, weight, errorsx, errorsy, (hxx, hxy, hyx, hyy)
 
@@ -383,8 +383,8 @@ def dual_pol_time_domain_lms_equalizer(signal, ntaps, sps, constl=None, train_sy
             if j == niter - 1:
                 xsymbols[0, i] = xout
                 ysymbols[0, i] = yout
-            errorsx[niter, i] = np.abs(errorx)
-            errorsy[niter, i] = np.abs(errory)
+            errorsx[j, i] = np.abs(errorx)
+            errorsy[j, i] = np.abs(errory)
 
     return xsymbols, ysymbols, weight, errorsx, errorsy
 

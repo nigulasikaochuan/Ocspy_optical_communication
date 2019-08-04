@@ -1,9 +1,12 @@
+import math
+
 from scipy.constants import c
 from scipy.signal import welch
 
 import Signal
 import numpy as np
 import matplotlib.pyplot as plt
+
 
 
 def upsample(symbol_x, sps):
@@ -85,3 +88,6 @@ def freq2lamb(freq):
     :return: lambda:[m]
     '''
     return c / freq
+
+
+

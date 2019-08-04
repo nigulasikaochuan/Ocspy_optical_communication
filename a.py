@@ -1,69 +1,59 @@
-import Signal
-import numpy as np
+from scipy.signal import correlate
+
 from Signal import QamSignal
-from channel import NonlinearFiber
-from ElecInstrument import PulseShaping,DAC
+from myutilities import generate_signal
 from OpticalInstrument import mux_signal
-from tools import power_meter, spectrum_analyzer
-import math
-from tqdm import tqdm_notebook
+from OpticalInstrument import demux_signal
+from OpticalInstrument import Edfa
+from channel import NonlinearFiber
+from tools import spectrum_analyzer, scatterplot, power_meter
+from Filter import ideal_lowpass
+from ElecInstrument import ADC
+from dsp_tools import normal_sample
+from dsp import MatchedFilter,dual_pol_time_domain_lms_equalizer,syncsignal,superscalar
+import numpy as np
+import matplotlib.pyplot as plt
+from dsp_tools import cal_symbols_qam,cal_scaling_factor_qam
+
+nch=7
+signals = generate_signal(baudrates=35e9,nch=nch,powers = 0,grid_size=50e9)
+wdm = mux_signal(signals)
+
+cons = cal_symbols_qam(16)/np.sqrt(cal_scaling_factor_qam(16))
+center_signal = demux_signal(wdm,nch//2)
+
+pos_freq = signals[nch//2].baudrate/2 *(1+0.02)
+neg_freq = - pos_freq
+center_signal = ideal_lowpass(center_signal,pos_freq,neg_freq,wdm.fs_in_fiber)
+center_signal = ADC()(center_signal,sps_in_fiber=signals[nch//2].sps_in_fiber,sps=2)
+center_signal = MatchedFilter(0.02,2)(center_signal)
+center_signal = normal_sample(center_signal)
 
 
-def calc_sps_in_fiber(nch, spacing, baudrate):
-    if divmod(nch, 2)[1] == 0:
-        highest = nch / 2 * spacing * 4
-        sps_in_fiber = math.ceil(highest / spacing)
-    else:
-        highest = 4 * ((nch - 1) / 2 * spacing + spacing / 2)
-        sps_in_fiber = math.ceil(highest / baudrate)
-    if divmod(sps_in_fiber, 2)[1] != 0:
-        sps_in_fiber += 1
-    return sps_in_fiber
+center_signal = dual_pol_time_domain_lms_equalizer(center_signal,321,2,np.atleast_2d(cons),signals[nch//2].symbol,mu=0.001)
+xpol = center_signal[0]
+ypol = center_signal[1]
+print('hello world')
 
+xpol = syncsignal(signals[nch//2].symbol[0],xpol,1)
+ypol = syncsignal(signals[nch//2].symbol[1],ypol,1)
 
-def normal_sample(signal_samples):
-    signal_samples = np.atleast_2d(signal_samples)
+mask = xpol!=0
+xpol = xpol[mask]
+ypol = ypol[mask]
+trainx = signals[nch//2].symbol[0,mask[0]]
+trainy = signals[nch//2].symbol[1,mask[0]]
 
-    for i in range(signal_samples.shape[0]):
-        signal_samples[i] = signal_samples[i] / np.sqrt(np.mean(np.abs(signal_samples[i]) ** 2))
+xpol,xpol_ori = superscalar(xpol,trainx,200,4,cons,0.02)
+ypol,ypol_ori = superscalar(ypol,trainy,200,4,cons,0.02)
 
-    return signal_samples
+# scatterplot(xpol,1)
 
+noise = xpol - xpol_ori
+power = power_meter(noise,'w')
 
-def generate_signal(nch, power, baudrate, grid_size, start_freq=193.1e12):
-    if not isinstance(baudrate, list):
-        baudrates = [baudrate] * nch
-    else:
-        assert len(baudrate) == nch
-    if not isinstance(power, list):
-        powers = [power] * nch
-    else:
-        assert len(power) == nch
-
-    sps_in_fiber = calc_sps_in_fiber(nch, grid_size, baudrate)
-    shaping_filter = PulseShaping(alpha=0.02, span=1024, sps=2)
-    freqs = [start_freq + i * grid_size for i in range(nch)]
-
-    signals = []
-    for freq, power, baudrate in zip(freqs, powers, baudrates):
-        config = dict(baudrate=baudrate, sps_in_fiber=sps_in_fiber, unit='hz', unit_freq='hz', center_frequency=freq)
-        signals.append(QamSignal(**config))
-
-    for signal in signals:
-        signal = shaping_filter(signal)
-        signal = DAC(is_quanti=False, clipping_ratio=None, resolution_bits=None)(signal)
-
-    for index, signal in enumerate(signals):
-        print(index, end=' ')
-        normal_sample(signal[:])
-        power = 10 ** (signal.launch_power / 10) / 1000 / 2
-        signal[:] = np.sqrt(power) * signal[:]
-
-    return signals
-
-c = generate_signal(40,0,34.1486e9,37.5e9)
-wdm_signal = mux_signal(c)
-spectrum_analyzer(wdm_signal,fs=wdm_signal.fs_in_fiber)
-
-
-# spectrum_analyzer(wdm_signal)
+qujunzhi =np.abs(xpol[0])- np.mean(np.abs(xpol[0]))
+angle = np.angle(xpol[0])
+c = correlate(qujunzhi,qujunzhi)
+plt.plot(np.abs(c[np.argmax(c)+1:np.argmax(c)+1+200]))
+plt.show()
