@@ -23,7 +23,7 @@ def normal_sample(signal_samples):
     return signal_samples
 
 
-def generate_signal(nch, powers, baudrates, grid_size, start_freq=193.1e12,alpha=0.02):
+def generate_signal(nch, powers, baudrates, grid_size, start_freq=193.1e12,alpha=0.02,mf='16qam'):
     if not isinstance(baudrates, list):
         baudrates = [baudrates] * nch
     else:
@@ -39,7 +39,9 @@ def generate_signal(nch, powers, baudrates, grid_size, start_freq=193.1e12,alpha
 
     signals = []
     for freq, power, baudrate in zip(freqs, powers, baudrates):
-        config = dict(baudrate=baudrate, sps_in_fiber=sps_in_fiber, unit='hz', unit_freq='hz', center_frequency=freq)
+        config = dict(baudrate=baudrate, sps_in_fiber=sps_in_fiber, unit='hz', unit_freq='hz', center_frequency=freq,
+                        launch_power = power,
+                      mf=mf)
         signals.append(Signal.QamSignal(**config))
 
     for signal in signals:

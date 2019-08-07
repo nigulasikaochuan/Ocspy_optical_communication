@@ -4,10 +4,10 @@ from scipy.fftpack import fft, ifft
 from Signal import Signal
 
 
-import cupy as cp
-from cupyx.scipy.fftpack import fft as improved_fft
-from cupyx.scipy.fftpack import ifft as improved_ifft
-from cupyx.scipy.fftpack import get_fft_plan
+# import cupy as cp
+# from cupyx.scipy.fftpack import fft as improved_fft
+# from cupyx.scipy.fftpack import ifft as improved_ifft
+# from cupyx.scipy.fftpack import get_fft_plan
 
 import numpy as np
 from scipy.constants import c
