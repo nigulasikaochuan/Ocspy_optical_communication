@@ -1,7 +1,7 @@
 from numpy.fft import fftfreq
 from scipy.fftpack import fft, ifft
 
-from Signal import Signal
+from signal.signal import Signal
 
 
 import cupy as cp

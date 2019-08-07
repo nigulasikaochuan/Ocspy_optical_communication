@@ -1,17 +1,15 @@
 import copy
-import os
 
 import numba
 from numba import prange
 from numpy.fft import fftfreq
-from scipy.io import loadmat
 from scipy.signal import fftconvolve, correlate, lfilter
 
-from Signal import Signal
+from signal_interface.signal import Signal
 from Filter import  rrcfilter
 import numpy as np
 
-from dsp_tools import exp_decision, decision, segment_axis, cal_symbols_qam, cal_scaling_factor_qam
+from .dsp_tools import exp_decision, decision, segment_axis, cal_symbols_qam, cal_scaling_factor_qam
 
 
 class MatchedFilter(object):

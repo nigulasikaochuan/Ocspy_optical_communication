@@ -1,10 +1,11 @@
-# %%
-# export
+
 import copy
 import warnings
 import numpy as np
 
 from typing import List, Union
+
+from numpy.fft import fftfreq
 from scipy.constants import c
 
 GHz = 1e9
@@ -68,7 +69,7 @@ class Signal(object):
 
     def __getitem__(self, index):
         assert self.ds_in_fiber is not None
-        return self.ds_in_fiber[index]
+        return np.atleast_2d(self.ds_in_fiber[index])
 
     @property
     def shape(self):
@@ -82,6 +83,12 @@ class Signal(object):
     def fs_in_fiber(self):
         return self.baudrate * self.sps_in_fiber
 
+
+    @property
+    def freq_vector(self):
+        assert self.ds_in_fiber is not None
+        freq_vector = np.atleast_2d(fftfreq(self.shape[1], 1 / self.fs_in_fiber))
+        return freq_vector
 
 class QamSignal(Signal):
 
@@ -133,6 +140,13 @@ class WdmSignal(object):
 
         if not isinstance(signals, list):
             signals = [signals]
+
+        fs_in_fiber = []
+        for signal in signals:
+            fs_in_fiber.append(signal.fs_in_fiber)
+        if np.any(np.diff(fs_in_fiber)):
+            raise Exception("The fs of all signal should be the same")
+
         self.fs_in_fiber = signals[0].fs_in_fiber
 
         self.symbol_rates = [signal.baudrate for signal in signals]
@@ -177,7 +191,11 @@ class WdmSignal(object):
     @property
     def is_pol(self):
         return self[:].shape[0] == 2
-
+    @property
+    def freq_vector(self):
+        assert self.__field is not None
+        freq_vector = np.atleast_2d(fftfreq(self.shape[1], 1 / self.fs_in_fiber))
+        return freq_vector
 
 if __name__ == '__main__':
     pass

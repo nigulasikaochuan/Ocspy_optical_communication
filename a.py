@@ -1,19 +1,8 @@
-from scipy.signal import correlate
-
-from Signal import QamSignal
 from myutilities import generate_signal
-from OpticalInstrument import mux_signal
-from OpticalInstrument import demux_signal
-from OpticalInstrument import Edfa
+from instrument.optins import mux_signal
+from instrument.optins import Edfa
 from channel import NonlinearFiber
-from tools import spectrum_analyzer, scatterplot, power_meter
-from Filter import ideal_lowpass
-from ElecInstrument import ADC
-from dsp_tools import normal_sample
-from dsp import MatchedFilter,dual_pol_time_domain_lms_equalizer,syncsignal,superscalar
-import numpy as np
-import matplotlib.pyplot as plt
-from dsp_tools import cal_symbols_qam,cal_scaling_factor_qam
+
 
 def get_signal(nch,power):
 

@@ -1,12 +1,12 @@
-import numba
 from scipy.signal import fftconvolve
 
 from Filter import rrcfilter
-from Signal import QamSignal, Signal
+from signal_interface.signal import Signal
 from resampy import resample
 
 import numpy as np
 from tools import upsample
+
 
 class PulseShaping(object):
     '''
@@ -75,6 +75,7 @@ class ADC(object):
 
         return new_sample
 
+
 class DAC(object):
 
     def __init__(self, clipping_ratio, resolution_bits, is_quanti):
@@ -135,19 +136,20 @@ class IqModulator(object):
         self.vbais_i = vbais_i
         self.vbais_q = vbais_q
 
-    def __call__(self, signal:Signal):
+    def __call__(self, signal: Signal):
         ibranch = signal[:].real
         qbranch = signal[:].imag
         Er = 10 ** (self.extract / 10)
         gamma = (1 - 1 / np.sqrt(Er)) / 2
-        for i in range(signal.is_pol+1):
+        for i in range(signal.is_pol + 1):
             ibranch[i] = self.laser_power / (10 ** (self.insert_loss / 20)) * (
-                        gamma * np.exp(1j * np.pi * (ibranch[i] + self.vbais_i) / self.vpi) +
-                        (1 - gamma) *np. exp(-1j * np.pi * (ibranch[i] + self.vbais_i) / self.vpi))
-            qbranch[i] = self.laser_power / (10 ** (self.insert_loss / 20)) * (gamma * np.exp(1j * np.pi * (qbranch[i] + self.vbais_q) / self.vpi) +
-            (1 - gamma) * np.exp(-1j *np.pi * (qbranch[i] + self.vbais_q) / self.vpi))
+                    gamma * np.exp(1j * np.pi * (ibranch[i] + self.vbais_i) / self.vpi) +
+                    (1 - gamma) * np.exp(-1j * np.pi * (ibranch[i] + self.vbais_i) / self.vpi))
+            qbranch[i] = self.laser_power / (10 ** (self.insert_loss / 20)) * (
+                        gamma * np.exp(1j * np.pi * (qbranch[i] + self.vbais_q) / self.vpi) +
+                        (1 - gamma) * np.exp(-1j * np.pi * (qbranch[i] + self.vbais_q) / self.vpi))
 
-        samples = (ibranch + np.exp(1j*np.pi/2)*qbranch)/2
+        samples = (ibranch + np.exp(1j * np.pi / 2) * qbranch) / 2
         signal[:] = samples
         return signal
 

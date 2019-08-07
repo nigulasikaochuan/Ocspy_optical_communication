@@ -1,7 +1,7 @@
-from ElecInstrument import PulseShaping, DAC
+from instrument.elecins import PulseShaping, DAC
 import math
-import Signal
 import numpy as np
+import signal_interface
 def calc_sps_in_fiber(nch, spacing, baudrate):
     if divmod(nch, 2)[1] == 0:
         highest = nch / 2 * spacing * 4
@@ -40,7 +40,7 @@ def generate_signal(nch, powers, baudrates, grid_size, start_freq=193.1e12,alpha
     signals = []
     for freq, power, baudrate in zip(freqs, powers, baudrates):
         config = dict(baudrate=baudrate, sps_in_fiber=sps_in_fiber, unit='hz', unit_freq='hz', center_frequency=freq)
-        signals.append(Signal.QamSignal(**config))
+        signals.append(signal_interface.QamSignal(**config))
 
     for signal in signals:
         signal = shaping_filter(signal)

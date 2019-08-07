@@ -2,13 +2,13 @@ from functools import partial
 
 import numba
 
-from ElecInstrument import ADC
+from instrument.elecins import ADC
 from Filter import ideal_lowpass
-from OpticalInstrument import demux_signal
-from Signal import Signal
-from dsp import dual_pol_time_domain_lms_equalizer, superscalar, cd_compensation, MatchedFilter, syncsignal, \
+from instrument.optins import demux_signal
+from signal.signal import Signal
+from dsp.dsp import dual_pol_time_domain_lms_equalizer, superscalar, cd_compensation, MatchedFilter, syncsignal, \
     demap_to_msg_v2
-from dsp_tools import cal_symbols_qam, cal_scaling_factor_qam, downsample, normal_sample
+from dsp.dsp import cal_symbols_qam, cal_scaling_factor_qam, downsample, normal_sample
 import numpy as np
 from collections import namedtuple
 
