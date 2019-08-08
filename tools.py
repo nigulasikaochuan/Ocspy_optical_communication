@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from typing import Union
 
-from signal_interface import QamSignal, WdmSignal
+from .signal_interface import QamSignal, WdmSignal
 
 
 def upsample(symbol_x, sps):
@@ -27,7 +27,7 @@ def upsample(symbol_x, sps):
     return symbol_x
 
 
-def power_meter(signal: signal.Signal, unit):
+def power_meter(signal: Union[QamSignal,WdmSignal], unit):
     if unit == 'dbm':
         return 10 * np.log10((np.sum(np.mean(np.abs(signal[:]) ** 2, axis=1))) * 1000)
     else:

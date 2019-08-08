@@ -1,7 +1,7 @@
 from numpy.fft import fftfreq
 from scipy.fftpack import fft, ifft
 
-from signal.signal import Signal
+from signal_interface.signal import Signal
 
 
 import cupy as cp
@@ -23,7 +23,7 @@ class LinearFiber(object):
             self.alpha  [db/km]
             self.D [ps/nm/km]
             self.length [km]
-            self.wave_length:[nm]
+            self.reference_wave_length:[nm]
             self.beta2: caculate beta2 from D,s^2/km
             self.slope: derivative of self.D ps/nm^2/km
             self.beta3_reference: s^3/km
@@ -80,13 +80,13 @@ class LinearFiber(object):
         :param signal: signal object to propagation across this fiber
         :return: ndarray
         '''
-        center_lambda = signal.center_wave_length
+        center_lambda = signal.center_wavelength
 
         after_prop = np.zeros_like(signal[:])
-        for pol in range(0, signal.pol_number):
+        for pol in range(0, int(signal.is_pol+1)):
             sample = signal[pol, :]
             sample_fft = fft(sample)
-            freq = fftfreq(signal.sample_number_in_fiber, 1 / signal.fs_in_fiber)
+            freq = fftfreq(signal[:].shape[1], 1 / signal.fs_in_fiber)
             omeg = 2 * np.pi * freq
 
             after_prop[pol, :] = sample_fft * np.exp(-self.alpha_lin * self.length / 2)
@@ -100,7 +100,7 @@ class LinearFiber(object):
     def inplace_prop(self, signal:Signal):
         after_prop = self._prop(signal)
 
-        for i in range(signal.pol_number):
+        for i in range(int(signal.is_pol+1)):
             signal[i, :] = after_prop[i, :]
         return signal
 

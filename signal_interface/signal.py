@@ -1,5 +1,6 @@
 
 import copy
+import os
 import warnings
 import numpy as np
 
@@ -17,10 +18,10 @@ unit_dict = dict(ghz=GHz, hz=Hz, km=Km, m=m, thz=Thz)
 
 
 class Signal(object):
-    def __init__(self, center_frequency, unit_freq, baudrate: float = 35, sps: int = 2, sps_in_fiber: int = 4,
+    def __init__(self, center_frequency, unit_freq, baudrate: float ,unit: str , sps: int = 2, sps_in_fiber: int = 4,
                  mf: str = '16qam'
 
-                 , is_pol: bool = True, unit: str = 'Ghz', launch_power: float = 0,
+                 , is_pol: bool = True,  launch_power: float = 0,
 
                  symbol_length=2 ** 16):
         warnings.warn(
@@ -40,10 +41,10 @@ class Signal(object):
         self.ase_power = 0
 
     def __str__(self):
-        string = f'baudrate : {self.baudrate} {self.unit}\t\n' \
+        string = f'baudrate : {self.baudrate/unit_dict[self.unit]} {self.unit}\t\n' \
             f'signal power is {self.launch_power} dbm\t\n' \
             f'signal power is {10 ** (self.launch_power / 10) / 1000} w\t\n' \
-            f'center_frequency is {self.center_frequency} {self.unit_freq}\t\n' \
+            f'center_frequency is {self.center_frequency/unit_dict[self.unit_freq]} {self.unit_freq}\t\n' \
             f'center wavelength is {c / self.center_frequency} m\t\n' \
             f'modulation format is {self.mf}'
         return string
@@ -119,7 +120,8 @@ class QamSignal(Signal):
         self._symbol = np.atleast_2d(self._symbol)
 
     def __map(self):
-        constl = np.load(f'{self.order}qam.npy')
+        BASE_DIR = os.path.dirname(__file__)
+        constl = np.load(f'{BASE_DIR}/{self.order}qam.npy')
         for i in range(self._symbol.shape[0]):
             for msg in range(0, self.order):
                 self._symbol[i, self.__msg[i] == msg] = constl[0, msg]

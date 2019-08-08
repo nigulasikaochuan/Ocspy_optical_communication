@@ -10,7 +10,15 @@ from Filter import  rrcfilter
 import numpy as np
 
 from .dsp_tools import exp_decision, decision, segment_axis, cal_symbols_qam, cal_scaling_factor_qam
+def downsample(signal_array,sps):
+    signal_array = np.atleast_2d(signal_array)
+    return signal_array[:,::sps]
 
+def normal_sample(signal_array):
+    signal_array = np.atleast_2d(signal_array)
+    for i in range(signal_array.shape[0]):
+        signal_array[i,:] = signal_array[i,:]/np.sqrt(np.mean(np.abs(signal_array[i,:])**2))
+    return signal_array
 
 class MatchedFilter(object):
 

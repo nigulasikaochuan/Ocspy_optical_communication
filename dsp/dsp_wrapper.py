@@ -5,10 +5,10 @@ import numba
 from instrument.elecins import ADC
 from Filter import ideal_lowpass
 from instrument.optins import demux_signal
-from signal.signal import Signal
-from dsp.dsp import dual_pol_time_domain_lms_equalizer, superscalar, cd_compensation, MatchedFilter, syncsignal, \
+from signal_interface.signal import Signal
+from .dsp import dual_pol_time_domain_lms_equalizer, superscalar, cd_compensation, MatchedFilter, syncsignal, \
     demap_to_msg_v2
-from dsp.dsp import cal_symbols_qam, cal_scaling_factor_qam, downsample, normal_sample
+from .dsp import cal_symbols_qam, cal_scaling_factor_qam, downsample, normal_sample
 import numpy as np
 from collections import namedtuple
 
@@ -80,6 +80,19 @@ class SuperScalar(object):
 class DspProcess(object):
 
     def __init__(self, is_lms=True, is_cpe=True, is_wdm=True, **config):
+        '''
+
+        :param is_lms:
+        :param is_cpe:
+        :param is_wdm:
+        :param config: cofiguration dictionary
+            matched_filter: roll_off
+            signal:order int
+            cd:spans
+            lms:ntaps,learning_rate，niter,is_train
+
+            cpe:block_length pilot_number constl g filter_n train_symbol
+        '''
         self.is_wdm = is_wdm
         self.config = config
         self.roll_off = config['matched_filter']['roll_off']

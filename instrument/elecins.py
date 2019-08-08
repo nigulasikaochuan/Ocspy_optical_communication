@@ -1,11 +1,11 @@
 from scipy.signal import fftconvolve
 
-from Filter import rrcfilter
-from signal_interface.signal import Signal
+from ..Filter import rrcfilter
+from ..signal_interface.signal import Signal
 from resampy import resample
 
 import numpy as np
-from tools import upsample
+from ..tools import upsample
 
 
 class PulseShaping(object):
@@ -78,7 +78,7 @@ class ADC(object):
 
 class DAC(object):
 
-    def __init__(self, clipping_ratio, resolution_bits, is_quanti):
+    def __init__(self, is_quanti,clipping_ratio=None, resolution_bits=None ):
         self.clipping_ratio = clipping_ratio
         self.resolution_bits = resolution_bits
         self.is_quanti = is_quanti
@@ -89,6 +89,9 @@ class DAC(object):
 
         # signal[:] = self.quantization(signal[:])
         if self.is_quanti:
+            assert self.clipping_ratio is not None
+            assert self.resolution_bits is not None
+
             signal[0, :] = self.quantization(signal[0, :].real) + 1j * self.quantization(signal[0, :].imag)
             signal[1, :] = self.quantization(signal[1, :].real) + 1j * self.quantization(signal[1, :].imag)
 

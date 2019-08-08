@@ -1,7 +1,28 @@
-from instrument.elecins import PulseShaping, DAC
+from .instrument.elecins import PulseShaping, DAC
 import math
 import numpy as np
 import signal_interface
+from typing import Union
+
+
+class AWG(object):
+
+    def __init__(self,span,sps,roll_off,is_quantized=False,clipping_ratio = None,resolution_bits = None):
+        self.span = span
+        self.sps = sps
+        self.roll_off = roll_off
+        self.shaping_filter = None
+        self.is_quantized = is_quantized
+        self.clipping_ratio = clipping_ratio
+        self.resolution_bits = resolution_bits
+
+    def __call__(self, signal:Union[signal_interface.QamSignal,signal_interface.Signal]):
+        self.shaping_filter = PulseShaping(span=self.span,sps=self.sps,alpha=self.roll_off)
+        signal = self.shaping_filter(signal)
+        dac = DAC(self.is_quantized,self.clipping_ratio,self.resolution_bits)
+        signal = dac(signal)
+        return signal
+
 def calc_sps_in_fiber(nch, spacing, baudrate):
     if divmod(nch, 2)[1] == 0:
         highest = nch / 2 * spacing * 4
@@ -24,6 +45,16 @@ def normal_sample(signal_samples):
 
 
 def generate_signal(nch, powers, baudrates, grid_size, start_freq=193.1e12,alpha=0.02):
+    '''
+
+    :param nch: the number of channels
+    :param powers: the power of each channel, if a integer is provided,it will be extened to list
+    :param baudrates: the baudrate of each channel simliar to powers, hz
+    :param grid_size: hz
+    :param start_freq: hz
+    :param alpha: roll_off
+    :return: Qamsignal:[List]
+    '''
     if not isinstance(baudrates, list):
         baudrates = [baudrates] * nch
     else:
